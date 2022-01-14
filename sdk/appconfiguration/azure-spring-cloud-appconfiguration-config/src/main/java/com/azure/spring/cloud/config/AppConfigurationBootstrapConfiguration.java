@@ -76,6 +76,7 @@ public class AppConfigurationBootstrapConfiguration {
      * @param keyVaultCredentialProviderOptional Optional credentials for connecting to KeyVault
      * @param keyVaultClientProviderOptional Optional client for connecting to Key Vault
      * @param keyVaultSecretProviderOptional Secret Resolver
+     * @param appConfigurationRefresh Refresher to store values
      * @return App Configuration Property Source Locator
      * @throws IllegalArgumentException if both KeyVaultClientProvider and KeyVaultSecretProvider exist.
      */
@@ -84,7 +85,8 @@ public class AppConfigurationBootstrapConfiguration {
         AppConfigurationProviderProperties appProperties, ClientStore clients,
         Optional<KeyVaultCredentialProvider> keyVaultCredentialProviderOptional,
         Optional<SecretClientBuilderSetup> keyVaultClientProviderOptional,
-        Optional<KeyVaultSecretProvider> keyVaultSecretProviderOptional) throws IllegalArgumentException {
+        Optional<KeyVaultSecretProvider> keyVaultSecretProviderOptional,
+        Optional<AppConfigurationRefresh> appConfigurationRefresh) throws IllegalArgumentException {
 
         KeyVaultCredentialProvider keyVaultCredentialProvider = null;
         SecretClientBuilderSetup keyVaultClientProvider = null;
@@ -114,7 +116,8 @@ public class AppConfigurationBootstrapConfiguration {
         }
 
         return new AppConfigurationPropertySourceLocator(properties, appProperties, clients,
-            keyVaultCredentialProvider, keyVaultClientProvider, keyVaultSecretProvider);
+            keyVaultCredentialProvider, keyVaultClientProvider, keyVaultSecretProvider,
+            appConfigurationRefresh.orElse(null));
     }
 
     /**

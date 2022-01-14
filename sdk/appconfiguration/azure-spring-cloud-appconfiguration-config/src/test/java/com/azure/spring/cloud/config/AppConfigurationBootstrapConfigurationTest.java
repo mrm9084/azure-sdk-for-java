@@ -20,7 +20,8 @@ public class AppConfigurationBootstrapConfigurationTest {
 
     private static final ApplicationContextRunner CONTEXT_RUNNER = new ApplicationContextRunner()
         .withPropertyValues(propPair(STORE_ENDPOINT_PROP, TEST_STORE_NAME))
-        .withConfiguration(AutoConfigurations.of(AppConfigurationBootstrapConfiguration.class));
+        .withConfiguration(AutoConfigurations.of(AppConfigurationBootstrapConfiguration.class))
+        .withConfiguration(AutoConfigurations.of(AppConfigurationAutoConfiguration.class));
 
     @Test
     public void iniConnectionStringSystemAssigned() throws Exception {

@@ -50,6 +50,8 @@ public class AppConfigurationRefresh implements ApplicationEventPublisherAware {
     private Map<String, AppConfigurationStoreHealth> clientHealth;
 
     private String eventDataInfo;
+    
+    private StateHolder stateHolder;
 
     /**
      * Component used for checking for and triggering configuration refreshes.
@@ -62,6 +64,7 @@ public class AppConfigurationRefresh implements ApplicationEventPublisherAware {
         this.clientStore = clientStore;
         this.eventDataInfo = "";
         this.clientHealth = new HashMap<>();
+        this.stateHolder = new StateHolder();
         configStores.stream().forEach(store -> {
             if (getStoreHealthState(store)) {
                 this.clientHealth.put(store.getEndpoint(), AppConfigurationStoreHealth.UP);
@@ -97,7 +100,7 @@ public class AppConfigurationRefresh implements ApplicationEventPublisherAware {
         for (ConfigStore configStore : configStores) {
             if (configStore.getEndpoint().equals(endpoint)) {
                 LOGGER.debug("Expiring refresh interval for " + configStore.getEndpoint());
-                StateHolder.expireState(configStore.getEndpoint());
+                stateHolder.expireState(configStore.getEndpoint());
                 break;
             }
         }
@@ -126,9 +129,9 @@ public class AppConfigurationRefresh implements ApplicationEventPublisherAware {
                     if (configStore.isEnabled()) {
                         String endpoint = configStore.getEndpoint();
                         AppConfigurationStoreMonitoring monitor = configStore.getMonitoring();
-                        if (StateHolder.getLoadState(endpoint)) {
+                        if (stateHolder.getLoadState(endpoint)) {
                             if (monitor.isEnabled()
-                                && refresh(StateHolder.getState(endpoint), endpoint, monitor.getRefreshInterval())) {
+                                && refresh(stateHolder.getState(endpoint), endpoint, monitor.getRefreshInterval())) {
                                 didRefresh = true;
                                 break;
                             } else {
@@ -139,9 +142,9 @@ public class AppConfigurationRefresh implements ApplicationEventPublisherAware {
 
                         FeatureFlagStore featureStore = configStore.getFeatureFlags();
 
-                        if (StateHolder.getLoadStateFeatureFlag(endpoint)) {
+                        if (stateHolder.getLoadStateFeatureFlag(endpoint)) {
                             if (featureStore.getEnabled()
-                                && refreshFeatureFlags(configStore, StateHolder.getStateFeatureFlag(endpoint),
+                                && refreshFeatureFlags(configStore, stateHolder.getStateFeatureFlag(endpoint),
                                     endpoint, monitor.getFeatureFlagRefreshInterval())) {
                                 didRefresh = true;
                                 break;
@@ -203,7 +206,7 @@ public class AppConfigurationRefresh implements ApplicationEventPublisherAware {
 
             // Just need to reset refreshInterval, if a refresh was triggered it will updated after loading the new
             // configurations.
-            StateHolder.setState(state, refreshInterval);
+            stateHolder.setState(state, refreshInterval);
         }
 
         return false;
@@ -270,7 +273,7 @@ public class AppConfigurationRefresh implements ApplicationEventPublisherAware {
 
             // Just need to reset refreshInterval, if a refresh was triggered it will updated after loading the new
             // configurations.
-            StateHolder.setState(state, refreshInterval);
+            stateHolder.setState(state, refreshInterval);
         }
 
         return false;
@@ -286,8 +289,8 @@ public class AppConfigurationRefresh implements ApplicationEventPublisherAware {
     }
 
     private Boolean getStoreHealthState(ConfigStore store) {
-        return store.isEnabled() && (StateHolder.getLoadState(store.getEndpoint())
-            || StateHolder.getLoadStateFeatureFlag(store.getEndpoint()));
+        return store.isEnabled() && (stateHolder.getLoadState(store.getEndpoint())
+            || stateHolder.getLoadStateFeatureFlag(store.getEndpoint()));
     }
 
     /**
@@ -306,5 +309,45 @@ public class AppConfigurationRefresh implements ApplicationEventPublisherAware {
         public String getMessage() {
             return this.message;
         }
+    }
+
+    /**
+     * @return the loadState
+     */
+    boolean getLoadState(String endpoint) {
+        return stateHolder.getLoadState(endpoint);
+    }
+
+    /**
+     * @param LOAD_STATE the loadState to set
+     */
+    void setLoadState(String endpoint, boolean loaded) {
+        stateHolder.setLoadState(endpoint, loaded);
+    }
+    
+    /**
+     * @param endpoint the stores endpoint
+     * @param watchKeys list of configuration watch keys that can trigger a refresh event
+     * @param monitoring refresh configurations
+     */
+    void setStateFeatureFlag(String endpoint, List<ConfigurationSetting> watchKeys,
+        Duration duration) {
+        stateHolder.setStateFeatureFlag(endpoint, watchKeys, duration);
+    }
+
+    /**
+     * @param LOAD_STATE the loadState to set
+     */
+    void setLoadStateFeatureFlag(String endpoint, boolean loaded) {
+        stateHolder.setLoadStateFeatureFlag(endpoint, loaded);
+    }
+
+    /**
+     * @param endpoint the stores endpoint
+     * @param watchKeysSettings list of configuration watch keys that can trigger a refresh event
+     * @param refreshInterval period between refresh checks
+     */
+    public void setState(String endpoint, List<ConfigurationSetting> watchKeysSettings, Duration refreshInterval) {
+        stateHolder.setState(endpoint, watchKeysSettings, refreshInterval);
     }
 }

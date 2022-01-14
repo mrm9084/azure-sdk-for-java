@@ -45,7 +45,8 @@ public class AppConfigurationPropertiesTest {
 
     @InjectMocks
     private ApplicationContextRunner contextRunner = new ApplicationContextRunner()
-        .withConfiguration(AutoConfigurations.of(AppConfigurationBootstrapConfiguration.class));
+        .withConfiguration(AutoConfigurations.of(AppConfigurationBootstrapConfiguration.class))
+        .withConfiguration(AutoConfigurations.of(AppConfigurationAutoConfiguration.class));
 
     @Mock
     private ApplicationContext context;

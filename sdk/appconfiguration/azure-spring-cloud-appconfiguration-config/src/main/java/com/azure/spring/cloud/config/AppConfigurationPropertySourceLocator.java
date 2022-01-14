@@ -56,6 +56,8 @@ public final class AppConfigurationPropertySourceLocator implements PropertySour
 
     private final KeyVaultSecretProvider keyVaultSecretProvider;
 
+    private final AppConfigurationRefresh appConfigurationRefresh;
+
     private static AtomicBoolean configloaded = new AtomicBoolean(false);
 
     private static AtomicBoolean startup = new AtomicBoolean(true);
@@ -67,12 +69,13 @@ public final class AppConfigurationPropertySourceLocator implements PropertySour
      * @param clients Clients for connecting to Azure App Configuration.
      * @param keyVaultCredentialProvider optional provider for Key Vault Credentials
      * @param keyVaultClientProvider optional provider for modifying the Key Vault Client
-     * @param keyVaultSecretProvider optional provider for loading  secrets instead of connecting to Key Vault
+     * @param keyVaultSecretProvider optional provider for loading secrets instead of connecting to Key Vault
+     * @param appConfigurationRefresh refresher updates latest known etags
      */
     public AppConfigurationPropertySourceLocator(AppConfigurationProperties properties,
         AppConfigurationProviderProperties appProperties, ClientStore clients,
         KeyVaultCredentialProvider keyVaultCredentialProvider, SecretClientBuilderSetup keyVaultClientProvider,
-        KeyVaultSecretProvider keyVaultSecretProvider) {
+        KeyVaultSecretProvider keyVaultSecretProvider, AppConfigurationRefresh appConfigurationRefresh) {
         this.properties = properties;
         this.appProperties = appProperties;
         this.configStores = properties.getStores();
@@ -80,6 +83,7 @@ public final class AppConfigurationPropertySourceLocator implements PropertySour
         this.keyVaultCredentialProvider = keyVaultCredentialProvider;
         this.keyVaultClientProvider = keyVaultClientProvider;
         this.keyVaultSecretProvider = keyVaultSecretProvider;
+        this.appConfigurationRefresh = appConfigurationRefresh;
     }
 
     @Override
@@ -103,7 +107,12 @@ public final class AppConfigurationPropertySourceLocator implements PropertySour
         while (configStoreIterator.hasNext()) {
             ConfigStore configStore = configStoreIterator.next();
 
-            Boolean loadNewPropertySources = startup.get() || StateHolder.getLoadState(configStore.getEndpoint());
+            Boolean endpointLoaded = false;
+            if (appConfigurationRefresh != null) {
+                endpointLoaded = appConfigurationRefresh.getLoadState(configStore.getEndpoint());
+            }
+
+            Boolean loadNewPropertySources = startup.get() || endpointLoaded;
 
             if (configStore.isEnabled() && loadNewPropertySources) {
                 addPropertySource(composite, configStore, profiles, !configStoreIterator.hasNext());
@@ -154,7 +163,9 @@ public final class AppConfigurationPropertySourceLocator implements PropertySour
                 LOGGER.warn(
                     "Unable to load configuration from Azure AppConfiguration store " + store.getEndpoint() + ".",
                     e);
-                StateHolder.setLoadState(store.getEndpoint(), false);
+                if (appConfigurationRefresh != null) {
+                    appConfigurationRefresh.setLoadState(store.getEndpoint(), false);
+                }
             }
             // If anything breaks we skip out on loading the rest of the store.
             return;
@@ -172,7 +183,8 @@ public final class AppConfigurationPropertySourceLocator implements PropertySour
      * it needs to be in the last one.
      * @return a list of AppConfigurationPropertySources
      */
-    private List<AppConfigurationPropertySource> create(ConfigStore store, List<String> profiles, boolean initFeatures, FeatureSet featureSet)
+    private List<AppConfigurationPropertySource> create(ConfigStore store, List<String> profiles, boolean initFeatures,
+        FeatureSet featureSet)
         throws Exception {
         List<AppConfigurationPropertySource> sourceList = new ArrayList<>();
 
@@ -191,39 +203,42 @@ public final class AppConfigurationPropertySourceLocator implements PropertySour
                 sourceList.add(propertySource);
             }
 
-            // Setting new ETag values for Watch
-            List<ConfigurationSetting> watchKeysSettings = new ArrayList<ConfigurationSetting>();
-            List<ConfigurationSetting> watchKeysFeatures = new ArrayList<ConfigurationSetting>();
+            if (appConfigurationRefresh != null) {
+                // Setting new ETag values for Watch
+                List<ConfigurationSetting> watchKeysSettings = new ArrayList<ConfigurationSetting>();
+                List<ConfigurationSetting> watchKeysFeatures = new ArrayList<ConfigurationSetting>();
 
-            for (AppConfigurationStoreTrigger trigger : store.getMonitoring().getTriggers()) {
-                ConfigurationSetting watchKey = clients.getWatchKey(trigger.getKey(), trigger.getLabel(),
-                    store.getEndpoint());
-                if (watchKey != null) {
-                    watchKeysSettings.add(watchKey);
-                } else {
-                    watchKeysSettings
-                        .add(new ConfigurationSetting().setKey(trigger.getKey()).setLabel(trigger.getLabel()));
+                for (AppConfigurationStoreTrigger trigger : store.getMonitoring().getTriggers()) {
+                    ConfigurationSetting watchKey = clients.getWatchKey(trigger.getKey(), trigger.getLabel(),
+                        store.getEndpoint());
+                    if (watchKey != null) {
+                        watchKeysSettings.add(watchKey);
+                    } else {
+                        watchKeysSettings
+                            .add(new ConfigurationSetting().setKey(trigger.getKey()).setLabel(trigger.getLabel()));
+                    }
                 }
+                if (store.getFeatureFlags().getEnabled()) {
+                    SettingSelector settingSelector = new SettingSelector()
+                        .setKeyFilter(store.getFeatureFlags().getKeyFilter())
+                        .setLabelFilter(store.getFeatureFlags().getLabelFilter());
+
+                    PagedIterable<ConfigurationSetting> watchKeys = clients.getFeatureFlagWatchKey(settingSelector,
+                        store.getEndpoint());
+
+                    watchKeys.forEach(watchKey -> {
+                        watchKeysFeatures.add(NormalizeNull.normalizeNullLabel(watchKey));
+                    });
+
+                    appConfigurationRefresh.setStateFeatureFlag(store.getEndpoint(), watchKeysFeatures,
+                        store.getMonitoring().getFeatureFlagRefreshInterval());
+                    appConfigurationRefresh.setLoadStateFeatureFlag(store.getEndpoint(), true);
+                }
+
+                appConfigurationRefresh.setState(store.getEndpoint(), watchKeysSettings,
+                    store.getMonitoring().getRefreshInterval());
+                appConfigurationRefresh.setLoadState(store.getEndpoint(), true);
             }
-            if (store.getFeatureFlags().getEnabled()) {
-                SettingSelector settingSelector = new SettingSelector()
-                    .setKeyFilter(store.getFeatureFlags().getKeyFilter())
-                    .setLabelFilter(store.getFeatureFlags().getLabelFilter());
-
-                PagedIterable<ConfigurationSetting> watchKeys = clients.getFeatureFlagWatchKey(settingSelector,
-                    store.getEndpoint());
-
-                watchKeys.forEach(watchKey -> {
-                    watchKeysFeatures.add(NormalizeNull.normalizeNullLabel(watchKey));
-                });
-
-                StateHolder.setStateFeatureFlag(store.getEndpoint(), watchKeysFeatures,
-                    store.getMonitoring().getFeatureFlagRefreshInterval());
-                StateHolder.setLoadStateFeatureFlag(store.getEndpoint(), true);
-            }
-
-            StateHolder.setState(store.getEndpoint(), watchKeysSettings, store.getMonitoring().getRefreshInterval());
-            StateHolder.setLoadState(store.getEndpoint(), true);
         } catch (RuntimeException e) {
             delayException();
             throw e;

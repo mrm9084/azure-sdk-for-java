@@ -2,8 +2,6 @@
 // Licensed under the MIT License.
 package com.azure.spring.cloud.config;
 
-
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
@@ -20,29 +18,30 @@ public class StateHolderTest {
 
     @Test
     public void expireState() {
+        StateHolder stateHolder = new StateHolder();
         String endpoint = "testEndpoint";
         List<ConfigurationSetting> watchKeys = new ArrayList<ConfigurationSetting>();
 
         AppConfigurationStoreMonitoring monitoring = new AppConfigurationStoreMonitoring();
-        StateHolder.setState(endpoint, watchKeys, monitoring.getRefreshInterval());
-        State state = StateHolder.getState(endpoint);
-        StateHolder.expireState(endpoint);
-        State currentState = StateHolder.getState(endpoint);
+        stateHolder.setState(endpoint, watchKeys, monitoring.getRefreshInterval());
+        State state = stateHolder.getState(endpoint);
+        stateHolder.expireState(endpoint);
+        State currentState = stateHolder.getState(endpoint);
         assertNotEquals(state, currentState);
     }
 
-
     @Test
     public void notExpireState() {
+        StateHolder stateHolder = new StateHolder();
         String endpoint = "testEndpoint";
         List<ConfigurationSetting> watchKeys = new ArrayList<ConfigurationSetting>();
 
         AppConfigurationStoreMonitoring monitoring = new AppConfigurationStoreMonitoring();
         monitoring.setRefreshInterval(Duration.ofSeconds(-30));
-        StateHolder.setState(endpoint, watchKeys, monitoring.getRefreshInterval());
-        State state = StateHolder.getState(endpoint);
-        StateHolder.expireState(endpoint);
-        State currentState = StateHolder.getState(endpoint);
+        stateHolder.setState(endpoint, watchKeys, monitoring.getRefreshInterval());
+        State state = stateHolder.getState(endpoint);
+        stateHolder.expireState(endpoint);
+        State currentState = stateHolder.getState(endpoint);
         assertEquals(state, currentState);
     }
 
