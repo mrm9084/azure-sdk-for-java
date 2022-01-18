@@ -15,21 +15,21 @@ final class StateHolder {
 
     private static final int MAX_JITTER = 15;
     private static final String FEATURE_ENDPOINT = "_feature";
-    private final Map<String, State> STATE = new ConcurrentHashMap<>();
-    private final Map<String, Boolean> LOAD_STATE = new ConcurrentHashMap<>();
+    private final Map<String, State> storeState = new ConcurrentHashMap<>();
+    private final Map<String, Boolean> loadState = new ConcurrentHashMap<>();
 
     /**
      * @return the state
      */
     State getState(String endpoint) {
-        return STATE.get(endpoint);
+        return storeState.get(endpoint);
     }
     
     /**
      * @return the state
      */
     State getStateFeatureFlag(String endpoint) {
-        return STATE.get(endpoint + FEATURE_ENDPOINT);
+        return storeState.get(endpoint + FEATURE_ENDPOINT);
     }
 
     /**
@@ -39,7 +39,7 @@ final class StateHolder {
      */
     void setState(String endpoint, List<ConfigurationSetting> watchKeys,
         Duration duration) {
-        STATE.put(endpoint, new State(watchKeys, Math.toIntExact(duration.getSeconds()), endpoint));
+        storeState.put(endpoint, new State(watchKeys, Math.toIntExact(duration.getSeconds()), endpoint));
     }
     
     /**
@@ -57,28 +57,30 @@ final class StateHolder {
      * @param duration nextRefreshPeriod
      */
     void setState(State state, Duration duration) {
-        STATE.put(state.getKey(), new State(state.getWatchKeys(), Math.toIntExact(duration.getSeconds()), state.getKey()));
+        storeState.put(state.getKey(), new State(state.getWatchKeys(), Math.toIntExact(duration.getSeconds()), state.getKey()));
     }
 
     void expireState(String endpoint) {
         String key = endpoint;
-        State oldState = STATE.get(key);
+        State oldState = storeState.get(key);
         SecureRandom random = new SecureRandom();
         long wait = (long) (random.nextDouble() * MAX_JITTER);
         long timeLeft = (int) ((oldState.getNextRefreshCheck().getTime() - (new Date().getTime())) / 1000);
         if (wait < timeLeft) {
-            STATE.put(key, new State(oldState.getWatchKeys(), (int) wait, oldState.getKey()));
+            storeState.put(key, new State(oldState.getWatchKeys(), (int) wait, oldState.getKey()));
         }
     }
 
     /**
+     * @param name endpoint name
      * @return the loadState
      */
     boolean getLoadState(String name) {
-        return LOAD_STATE.getOrDefault(name,  false);
+        return loadState.getOrDefault(name,  false);
     }
     
     /**
+     * @param name endpoint name
      * @return the loadState
      */
     boolean getLoadStateFeatureFlag(String name) {
@@ -86,14 +88,16 @@ final class StateHolder {
     }
 
     /**
-     * @param LOAD_STATE the loadState to set
+     * @param name endpoint name
+     * @param loaded the loadState to set
      */
     void setLoadState(String name, Boolean loaded) {
-        LOAD_STATE.put(name, loaded);
+        loadState.put(name, loaded);
     }
     
     /**
-     * @param LOAD_STATE the loadState to set
+     * @param name endpoint name
+     * @param loaded the loadState to set
      */
     void setLoadStateFeatureFlag(String name, Boolean loaded) {
         setLoadState(name + FEATURE_ENDPOINT, loaded);

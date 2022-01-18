@@ -154,7 +154,7 @@ public final class AppConfigurationPropertySourceLocator implements PropertySour
 
             LOGGER.debug("PropertySource context.");
         } catch (Exception e) {
-            if (store.isFailFast() || !startup.get()) {
+            if (store.isFailFast() /*|| !startup.get()*/) {
                 LOGGER.error(
                     "Fail fast is set and there was an error reading configuration from Azure App "
                         + "Configuration store " + store.getEndpoint() + ".");

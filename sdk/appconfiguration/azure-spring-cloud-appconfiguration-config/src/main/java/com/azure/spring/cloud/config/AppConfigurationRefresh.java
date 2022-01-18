@@ -51,7 +51,7 @@ public class AppConfigurationRefresh implements ApplicationEventPublisherAware {
 
     private String eventDataInfo;
     
-    private StateHolder stateHolder;
+    private final StateHolder stateHolder;
 
     /**
      * Component used for checking for and triggering configuration refreshes.
@@ -312,6 +312,7 @@ public class AppConfigurationRefresh implements ApplicationEventPublisherAware {
     }
 
     /**
+     * @param name endpoint name
      * @return the loadState
      */
     boolean getLoadState(String endpoint) {
@@ -319,7 +320,8 @@ public class AppConfigurationRefresh implements ApplicationEventPublisherAware {
     }
 
     /**
-     * @param LOAD_STATE the loadState to set
+     * @param name endpoint name
+     * @param loaded the loadState to set
      */
     void setLoadState(String endpoint, boolean loaded) {
         stateHolder.setLoadState(endpoint, loaded);
@@ -336,7 +338,8 @@ public class AppConfigurationRefresh implements ApplicationEventPublisherAware {
     }
 
     /**
-     * @param LOAD_STATE the loadState to set
+     * @param name endpoint name
+     * @param loaded the loadState to set
      */
     void setLoadStateFeatureFlag(String endpoint, boolean loaded) {
         stateHolder.setLoadStateFeatureFlag(endpoint, loaded);
