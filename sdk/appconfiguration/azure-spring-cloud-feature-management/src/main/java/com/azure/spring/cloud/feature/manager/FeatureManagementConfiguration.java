@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Configuration;
  * Configuration for setting up FeatureManager
  */
 @Configuration
-@EnableConfigurationProperties({FeatureManagementConfigProperties.class})
+@EnableConfigurationProperties({FeatureManagementConfigProperties.class, FeatureVariantProperties.class})
 public class FeatureManagementConfiguration {
 
     /**

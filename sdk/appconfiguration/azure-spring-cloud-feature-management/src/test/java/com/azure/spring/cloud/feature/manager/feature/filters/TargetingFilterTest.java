@@ -24,7 +24,7 @@ import com.azure.spring.cloud.feature.manager.targeting.TargetingEvaluationOptio
 
 import reactor.core.publisher.Mono;
 
-@SpringBootTest(classes = {TestConfiguration.class, SpringBootTest.class})
+@SpringBootTest(classes = { TestConfiguration.class, SpringBootTest.class })
 public class TargetingFilterTest {
 
     private static final String USERS = "users";
@@ -41,6 +41,9 @@ public class TargetingFilterTest {
 
     @Mock
     private ITargetingContextAccessor contextAccessor;
+    
+    @Mock
+    private TargetingContext targetingContextMock;
 
     @Test
     public void targetedUser() {
