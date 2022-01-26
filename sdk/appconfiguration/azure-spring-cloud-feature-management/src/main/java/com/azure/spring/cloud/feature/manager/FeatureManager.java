@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 package com.azure.spring.cloud.feature.manager;
 
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
@@ -15,17 +14,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 import org.springframework.util.ReflectionUtils;
-import org.springframework.util.StringUtils;
 
-import com.azure.spring.cloud.feature.manager.entities.DynamicFeature;
 import com.azure.spring.cloud.feature.manager.entities.Feature;
-import com.azure.spring.cloud.feature.manager.entities.FeatureDefinition;
 import com.azure.spring.cloud.feature.manager.entities.FeatureFilterEvaluationContext;
-import com.azure.spring.cloud.feature.manager.entities.FeatureVariant;
-import com.azure.spring.cloud.feature.manager.entities.IFeatureVariantAssigner;
-import com.azure.spring.cloud.feature.manager.entities.IFeatureVariantAssignerMetadata;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.PropertyNamingStrategy;
 
 import reactor.core.publisher.Mono;
 
@@ -39,18 +30,9 @@ public class FeatureManager {
 
     @Autowired
     private transient ApplicationContext context;
-
-    /**
-     * ConfigurationProperties for accessing the different types of feature variants.
-     */
-    @Autowired
-    private FeatureVariantProperties variantProperties;
-
+    
     @Autowired
     private FeatureManagementProperties featureManagementConfigurations;
-
-    private static final ObjectMapper MAPPER = new ObjectMapper()
-        .setPropertyNamingStrategy(PropertyNamingStrategy.KEBAB_CASE);
 
     private transient FeatureManagementConfigProperties properties;
 
@@ -74,18 +56,6 @@ public class FeatureManager {
      */
     public Mono<Boolean> isEnabledAsync(String feature) throws FilterNotFoundException {
         return Mono.just(checkFeatures(feature));
-    }
-
-    /**
-     * Returns a feature variant of the type given.
-     * @param <T> Type of the feature that will be returned.
-     * @param feature name of the feature being checked.
-     * @param returnClass Type of the feature being checked.
-     * @return variant of the provided type
-     * @throws FilterNotFoundException if a Filter with the given name isn't found
-     */
-    public <T> Mono<T> getVariantAsync(String feature, Class<T> returnClass) throws FilterNotFoundException {
-        return Mono.just(generateVariant(feature, returnClass));
     }
 
     private boolean checkFeatures(String feature) throws FilterNotFoundException {
@@ -125,90 +95,6 @@ public class FeatureManager {
             }
         }
         return false;
-    }
-
-    @SuppressWarnings("unchecked")
-    private <T> T generateVariant(String featureName, Class<T> type) {
-
-        if (!StringUtils.hasText(featureName)) {
-            throw new IllegalArgumentException("Feature Variant is empty or null.");
-        }
-
-        FeatureVariant variant = null;
-
-        DynamicFeature dynamicFeature = null; // dynamicFeatures.get(featureName);
-
-        FeatureDefinition featureDefinition = new FeatureDefinition(featureName, dynamicFeature);
-
-        FeatureVariant defaultVariant = validateDynamicFeature(featureDefinition, featureName);
-
-        IFeatureVariantAssignerMetadata assigner = null;
-
-        try {
-            assigner = (IFeatureVariantAssignerMetadata) context.getBean(featureDefinition.getAssigner());
-        } catch (NoSuchBeanDefinitionException e) {
-            throw new FeatureManagementException("The feature variant assigner " + featureDefinition.getAssigner()
-                + " specified for feature " + featureName + "was not found.");
-        }
-
-        if (assigner instanceof IFeatureVariantAssigner) {
-            variant = ((IFeatureVariantAssigner) assigner).assignVariantAsync(featureDefinition).block();
-        }
-
-        if (variant == null) {
-            variant = defaultVariant;
-
-        }
-
-        String reference = variant.getConfigurationReference();
-
-        String[] parts = reference.split(":");
-
-        Object configurations = null;
-
-        for (String part : parts) {
-            if (configurations == null) {
-                configurations = variantProperties.get(part);
-            } else if (configurations instanceof HashMap) {
-                configurations = ((HashMap<String, Object>) configurations).get(part);
-            }
-        }
-
-        return MAPPER.convertValue(configurations, type);
-    }
-
-    private FeatureVariant validateDynamicFeature(FeatureDefinition featureDefinition, String featureName) {
-        if (!StringUtils.hasText(featureDefinition.getAssigner())) {
-            throw new FeatureManagementException(
-                "Missing Feature Variant assigner name for the feature " + featureName);
-        }
-
-        if (featureDefinition.getVariants() == null || featureDefinition.getVariants().size() == 0) {
-            throw new FeatureManagementException(
-                "No Variants are registered for the feature " + featureName);
-        }
-
-        FeatureVariant defaultVariant = null;
-
-        for (FeatureVariant v : featureDefinition.getVariants()) {
-            if (v.getDefault()) {
-                if (defaultVariant != null) {
-                    throw new FeatureManagementException(
-                        "Multiple default variants are registered for the feature " + featureName);
-                }
-                defaultVariant = v;
-            }
-
-            if (!StringUtils.hasText(v.getConfigurationReference())) {
-                throw new FeatureManagementException("The variant " + v.getName() + " for the feature " + featureName
-                    + "does not have a configuration reference.");
-            }
-        }
-
-        if (defaultVariant == null) {
-            throw new FeatureManagementException("A default variant cannot be found for the feature " + featureName);
-        }
-        return defaultVariant;
     }
 
     /**

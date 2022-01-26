@@ -2,7 +2,8 @@
 // Licensed under the MIT License.
 package com.azure.spring.cloud.feature.manager;
 
-import java.util.HashMap;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,13 +16,12 @@ import com.azure.spring.cloud.feature.manager.entities.FeatureDefinition;
 import com.azure.spring.cloud.feature.manager.entities.FeatureVariant;
 import com.azure.spring.cloud.feature.manager.entities.IFeatureVariantAssigner;
 import com.azure.spring.cloud.feature.manager.entities.IFeatureVariantAssignerMetadata;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.PropertyNamingStrategy;
 
 import reactor.core.publisher.Mono;
 
 /**
- * Holds information on Feature Management properties and can check if a given feature is enabled.
+ * Holds information on Feature Management properties and can check if a given
+ * feature is enabled.
  */
 @Component("DynamicFeatureManagement")
 public class DynamicFeatureManager {
@@ -30,21 +30,20 @@ public class DynamicFeatureManager {
     private transient ApplicationContext context;
 
     /**
-     * ConfigurationProperties for accessing the different types of feature variants.
+     * ConfigurationProperties for accessing the different types of feature
+     * variants.
      */
     @Autowired
-    private FeatureVariantProperties variantProperties;
+    private IDynamicFeatureProperties variantProperties;
 
     @Autowired
     private FeatureManagementProperties featureManagementConfigurations;
 
-    private static final ObjectMapper MAPPER = new ObjectMapper()
-        .setPropertyNamingStrategy(PropertyNamingStrategy.KEBAB_CASE);
-
     /**
      * Returns a feature variant of the type given.
-     * @param <T> Type of the feature that will be returned.
-     * @param feature name of the feature being checked.
+     * 
+     * @param <T>         Type of the feature that will be returned.
+     * @param feature     name of the feature being checked.
      * @param returnClass Type of the feature being checked.
      * @return variant of the provided type
      * @throws FilterNotFoundException if a Filter with the given name isn't found
@@ -74,7 +73,7 @@ public class DynamicFeatureManager {
             assigner = (IFeatureVariantAssignerMetadata) context.getBean(featureDefinition.getAssigner());
         } catch (NoSuchBeanDefinitionException e) {
             throw new FeatureManagementException("The feature variant assigner " + featureDefinition.getAssigner()
-                + " specified for feature " + featureName + " was not found.");
+                    + " specified for feature " + featureName + " was not found.");
         }
 
         if (assigner instanceof IFeatureVariantAssigner) {
@@ -83,35 +82,66 @@ public class DynamicFeatureManager {
 
         if (variant == null) {
             variant = defaultVariant;
-
         }
 
         String reference = variant.getConfigurationReference();
 
         String[] parts = reference.split(":");
 
-        Object configurations = null;
+        String methodName = "get" + parts[0];
+        Method method = null;
+        Object mainObject = null;
 
-        for (String part : parts) {
-            if (configurations == null) {
-                configurations = variantProperties.get(part);
-            } else if (configurations instanceof HashMap) {
-                configurations = ((HashMap<String, Object>) configurations).get(part);
-            }
+        // Dynamically Accesses @ConfigurationProperties and finds the matching method.
+        try {
+            method = variantProperties.getClass().getMethod(methodName);
+        } catch (NoSuchMethodException | SecurityException e) {
+            String message = "Failed to load" + methodName + " in " + variantProperties.getClass()
+                    + ". Make sure it exists and is publicly accessable.";
+            throw new DynamicFeatureException(message, e);
+        }
+        // Calls method to get back an Object, this object contains multiple variants
+        // each has a get method.
+        try {
+            mainObject = method.invoke(variantProperties);
+        } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+            String message = "Failed invoking " + methodName + " in " + variantProperties.getClass()
+                    + ". Make sure it exists and is publicly accessable.";
+            throw new DynamicFeatureException(message, e);
         }
 
-        return MAPPER.convertValue(configurations, type);
+        methodName = "get" + parts[1];
+        T variantObject = null;
+
+        // Dynamically Accessing the Object loaded named mainObject.
+        try {
+            method = mainObject.getClass().getMethod(methodName);
+        } catch (NoSuchMethodException | SecurityException e) {
+            String message = "Failed to load" + methodName + " in " + variantProperties.getClass()
+                    + ". Make sure it exists and is publicly accessable.";
+            throw new DynamicFeatureException(message, e);
+        }
+
+        // This should return the Varaint Object requested.
+        try {
+            variantObject = (T) method.invoke(mainObject);
+        } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+            String message = "Failed invoking " + methodName + " in " + variantProperties.getClass()
+                    + ". Make sure it exists and is publicly accessable.";
+            throw new DynamicFeatureException(message, e);
+        }
+
+        return variantObject;
     }
 
     private FeatureVariant validateDynamicFeature(FeatureDefinition featureDefinition, String featureName) {
         if (!StringUtils.hasText(featureDefinition.getAssigner())) {
             throw new FeatureManagementException(
-                "Missing Feature Variant assigner name for the feature " + featureName);
+                    "Missing Feature Variant assigner name for the feature " + featureName);
         }
 
         if (featureDefinition.getVariants() == null || featureDefinition.getVariants().size() == 0) {
-            throw new FeatureManagementException(
-                "No Variants are registered for the feature " + featureName);
+            throw new FeatureManagementException("No Variants are registered for the feature " + featureName);
         }
 
         FeatureVariant defaultVariant = null;
@@ -120,14 +150,14 @@ public class DynamicFeatureManager {
             if (v.getDefault()) {
                 if (defaultVariant != null) {
                     throw new FeatureManagementException(
-                        "Multiple default variants are registered for the feature " + featureName);
+                            "Multiple default variants are registered for the feature " + featureName);
                 }
                 defaultVariant = v;
             }
 
             if (!StringUtils.hasText(v.getConfigurationReference())) {
                 throw new FeatureManagementException("The variant " + v.getName() + " for the feature " + featureName
-                    + "does not have a configuration reference.");
+                        + "does not have a configuration reference.");
             }
         }
 
