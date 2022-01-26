@@ -1,6 +1,6 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
-package com.azure.spring.cloud.feature.manager.entities.featurevariants;
+package com.azure.spring.cloud.feature.manager.entities;
 
 /**
  * Marker interface for feature variant assigners used to assign which variant should be used for a dynamic feature.

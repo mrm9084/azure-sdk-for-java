@@ -12,9 +12,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.azure.spring.cloud.feature.manager.TargetingException;
-import com.azure.spring.cloud.feature.manager.entities.featurevariants.FeatureDefinition;
-import com.azure.spring.cloud.feature.manager.entities.featurevariants.FeatureVariant;
-import com.azure.spring.cloud.feature.manager.entities.featurevariants.IFeatureVariantAssigner;
+import com.azure.spring.cloud.feature.manager.entities.FeatureDefinition;
+import com.azure.spring.cloud.feature.manager.entities.FeatureVariant;
+import com.azure.spring.cloud.feature.manager.entities.IFeatureVariantAssigner;
 import com.azure.spring.cloud.feature.manager.feature.filters.TargetingFilter;
 import com.azure.spring.cloud.feature.manager.targeting.Audience;
 import com.azure.spring.cloud.feature.manager.targeting.GroupRollout;
