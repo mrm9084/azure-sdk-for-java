@@ -96,7 +96,7 @@ public class DynamicFeatureManager {
         try {
             method = variantProperties.getClass().getMethod(methodName);
         } catch (NoSuchMethodException | SecurityException e) {
-            String message = "Failed to load" + methodName + " in " + variantProperties.getClass()
+            String message = "Failed to load " + methodName + " in " + variantProperties.getClass()
                     + ". Make sure it exists and is publicly accessable.";
             throw new DynamicFeatureException(message, e);
         }
