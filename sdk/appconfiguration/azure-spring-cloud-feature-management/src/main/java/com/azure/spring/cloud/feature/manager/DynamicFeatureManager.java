@@ -86,7 +86,7 @@ public class DynamicFeatureManager {
 
         String reference = variant.getConfigurationReference();
 
-        String[] parts = reference.split(":");
+        String[] parts = reference.split("\\.");
 
         String methodName = "get" + parts[0];
         Method method = null;
