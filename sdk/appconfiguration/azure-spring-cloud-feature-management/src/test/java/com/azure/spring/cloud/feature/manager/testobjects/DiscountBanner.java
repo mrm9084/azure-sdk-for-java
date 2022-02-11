@@ -2,36 +2,30 @@ package com.azure.spring.cloud.feature.manager.testobjects;
 
 public class DiscountBanner {
 
-    private DiscountBannerSize big;
+    private Integer size;
 
-    private DiscountBannerSize small;
+    private String color;
 
-    /**
-     * @return the big
-     */
-    public DiscountBannerSize getBig() {
-        return big;
+    public Integer getSize() {
+        return size;
     }
 
-    /**
-     * @param big the big to set
-     */
-    public void setBig(DiscountBannerSize big) {
-        this.big = big;
+    public DiscountBanner setSize(Integer size) {
+        this.size = size;
+        return this;
     }
 
-    /**
-     * @return the small
-     */
-    public DiscountBannerSize getSmall() {
-        return small;
+    public String getColor() {
+        return color;
     }
 
-    /**
-     * @param small the small to set
-     */
-    public void setSmall(DiscountBannerSize small) {
-        this.small = small;
+    public DiscountBanner setColor(String color) {
+        this.color = color;
+        return this;
     }
-
+    
+    @Override
+    public String toString() {
+        return "DiscountBannder: Size " + size + " Color " + color;
+    }
 }

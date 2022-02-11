@@ -13,10 +13,19 @@ public class DynamicFeatureException extends RuntimeException {
      * Creates a new instance of the DynamicFeatureException
      *
      * @param message the error message.
-     * @param cause  test
+     * @param cause test
      */
     public DynamicFeatureException(String message, Throwable cause) {
         super(message, cause);
+    }
+
+    /**
+     * Creates a new instance of the DynamicFeatureException
+     *
+     * @param message the error message.
+     */
+    public DynamicFeatureException(String message) {
+        super(message);
     }
 
 }

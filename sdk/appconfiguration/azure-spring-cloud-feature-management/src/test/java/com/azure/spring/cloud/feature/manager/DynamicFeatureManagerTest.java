@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.when;
 
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -26,7 +27,6 @@ import com.azure.spring.cloud.feature.manager.entities.FeatureFilterEvaluationCo
 import com.azure.spring.cloud.feature.manager.entities.FeatureVariant;
 import com.azure.spring.cloud.feature.manager.entities.IFeatureVariantAssigner;
 import com.azure.spring.cloud.feature.manager.testobjects.DiscountBanner;
-import com.azure.spring.cloud.feature.manager.testobjects.DiscountBannerSize;
 import com.azure.spring.cloud.feature.manager.testobjects.MockableProperties;
 
 import reactor.core.publisher.Mono;
@@ -67,19 +67,20 @@ public class DynamicFeatureManagerTest {
     public void setup() {
         MockitoAnnotations.openMocks(this);
         when(properties.isFailFast()).thenReturn(true);
-
-        DiscountBanner discountBanner = new DiscountBanner();
-        DiscountBannerSize discountBannerBig = new DiscountBannerSize();
+        
+        DiscountBanner discountBannerBig = new DiscountBanner();
         discountBannerBig.setColor("#DDD");
         discountBannerBig.setSize(400);
-        DiscountBannerSize discountBannerSmall = new DiscountBannerSize();
+        DiscountBanner discountBannerSmall = new DiscountBanner();
         discountBannerSmall.setColor("#999");
         discountBannerSmall.setSize(150);
+        
+        Map<String, DiscountBanner> discountBannerMap = new HashMap<>();
 
-        discountBanner.setBig(discountBannerBig);
-        discountBanner.setSmall(discountBannerSmall);
+        discountBannerMap.put("Big", discountBannerBig);
+        discountBannerMap.put("Small", discountBannerSmall);
 
-        when(variantProperties.getDiscountBanner()).thenReturn(discountBanner);
+        when(variantProperties.getDiscountBanner()).thenReturn(discountBannerMap);
     }
 
     @AfterEach
@@ -103,7 +104,7 @@ public class DynamicFeatureManagerTest {
 
         when(featureManagementPropertiesMock.getDynamicFeatures()).thenReturn(params);
 
-        DiscountBannerSize testObject = featureManager.getVariantAsync("DiscountBanner", DiscountBannerSize.class)
+        DiscountBanner testObject = featureManager.getVariantAsync("DiscountBanner", DiscountBanner.class)
             .block();
 
         assertNotNull(testObject);
@@ -153,7 +154,7 @@ public class DynamicFeatureManagerTest {
 
         when(featureManagementPropertiesMock.getDynamicFeatures()).thenReturn(params);
 
-        DiscountBannerSize testObject = featureManager.getVariantAsync("DiscountBanner", DiscountBannerSize.class)
+        DiscountBanner testObject = featureManager.getVariantAsync("DiscountBanner", DiscountBanner.class)
             .block();
         assertNotNull(testObject);
         assertEquals(150, testObject.getSize());
