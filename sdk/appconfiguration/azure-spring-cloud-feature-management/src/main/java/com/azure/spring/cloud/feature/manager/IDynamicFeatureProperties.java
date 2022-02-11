@@ -3,7 +3,8 @@
 package com.azure.spring.cloud.feature.manager;
 
 /**
- * Test
+ * Interface to be added to a single ConfigurationProperties to enable access by
+ * DynamicFeatureManager.
  */
 public interface IDynamicFeatureProperties {
 

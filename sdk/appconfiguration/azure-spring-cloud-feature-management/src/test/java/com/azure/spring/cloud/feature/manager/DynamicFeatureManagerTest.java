@@ -94,7 +94,7 @@ public class DynamicFeatureManagerTest {
 
         Map<String, FeatureVariant> variants = new LinkedHashMap<>();
 
-        variants.put("0", createFeatureVariant("DiscountBanner:Big", EMPTY_MAP, EMPTY_MAP, 100));
+        variants.put("0", createFeatureVariant("DiscountBanner.Big", EMPTY_MAP, EMPTY_MAP, 100));
         variants.get("0").setDefault(true);
         dynamicFeature.setVariants(variants);
 
@@ -117,7 +117,7 @@ public class DynamicFeatureManagerTest {
 
         Map<String, FeatureVariant> variants = new LinkedHashMap<>();
 
-        variants.put("0", createFeatureVariant("DiscountBanner:Big", EMPTY_MAP, EMPTY_MAP, 100));
+        variants.put("0", createFeatureVariant("DiscountBanner.Big", EMPTY_MAP, EMPTY_MAP, 100));
 
         dynamicFeature.setVariants(variants);
 
@@ -133,7 +133,7 @@ public class DynamicFeatureManagerTest {
 
     @Test
     public void getVariantAsyncNonDefault() {
-        FeatureVariant variant = createFeatureVariant("DiscountBanner:Small", EMPTY_MAP, EMPTY_MAP, 100);
+        FeatureVariant variant = createFeatureVariant("DiscountBanner.Small", EMPTY_MAP, EMPTY_MAP, 100);
 
         when(context.getBean(Mockito.matches("Test.Assigner"))).thenReturn(filterMock);
         when(filterMock.assignVariantAsync(Mockito.any())).thenReturn(Mono.just(variant));
@@ -143,7 +143,7 @@ public class DynamicFeatureManagerTest {
 
         Map<String, FeatureVariant> variants = new LinkedHashMap<>();
 
-        variants.put("0", createFeatureVariant("DiscountBanner:Big", EMPTY_MAP, EMPTY_MAP, 0));
+        variants.put("0", createFeatureVariant("DiscountBanner.Big", EMPTY_MAP, EMPTY_MAP, 0));
         variants.get("0").setDefault(true);
         variants.put("1", variant);
         dynamicFeature.setVariants(variants);
