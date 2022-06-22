@@ -353,4 +353,4 @@ Please follow [instructions here][contributing_md] to build from source or contr
 [azure_rbac]: https://docs.microsoft.com/azure/role-based-access-control/role-assignments-portal
 [app_configuration_SDK]: https://github.com/Azure/azure-sdk-for-java/tree/main/sdk/appconfiguration/azure-data-appconfiguration#key-concepts
 [key_vault_SDK]: https://github.com/Azure/azure-sdk-for-java/tree/main/sdk/keyvault/azure-security-keyvault-secrets#key-concepts
-[reference_docs]: https://microsoft.github.io/spring-cloud-azure/docs/azure-app-configuration/index.html
+[reference_docs]: https://microsoft.github.io/spring-cloud-azure/docs/azure-app-configuration/2.8.0-beta.1/reference/html/index.html
