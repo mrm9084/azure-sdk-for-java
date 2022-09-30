@@ -116,7 +116,7 @@ public class AppConfigurationPropertySourceTest {
         ".appconfig.featureflag/", "target",
         FEATURE_VALUE_TARGETING, FEATURE_LABEL, FEATURE_FLAG_CONTENT_TYPE);
 
-    private static final String FEATURE_MANAGEMENT_KEY = "feature-management.featureManagement";
+    private static final String FEATURE_MANAGEMENT_KEY = "feature-management";
 
     private static ObjectMapper mapper = new ObjectMapper();
 
@@ -222,12 +222,10 @@ public class AppConfigurationPropertySourceTest {
         String[] keyNames = propertySource.getPropertyNames();
         String[] expectedKeyNames = testItems.stream()
             .map(t -> t.getKey().substring(KEY_FILTER.length())).toArray(String[]::new);
-        String[] allExpectedKeyNames = new String[expectedKeyNames.length + 1];
+        String[] allExpectedKeyNames = new String[expectedKeyNames.length];
 
-        String[] featureManagementKey = { FEATURE_MANAGEMENT_KEY };
 
         System.arraycopy(expectedKeyNames, 0, allExpectedKeyNames, 0, expectedKeyNames.length);
-        System.arraycopy(featureManagementKey, 0, allExpectedKeyNames, expectedKeyNames.length, 1);
 
         assertThat(keyNames).containsExactlyInAnyOrder(allExpectedKeyNames);
 
@@ -275,12 +273,12 @@ public class AppConfigurationPropertySourceTest {
         propertySource.initFeatures(featureSet);
 
         FeatureSet featureSetExpected = new FeatureSet();
-        Feature feature = new Feature();
-        feature.setKey("Alpha");
+        Feature alpha = new Feature();
+        alpha.setKey("Alpha");
         HashMap<Integer, FeatureFlagFilter> filters = new HashMap<>();
         FeatureFlagFilter featureFlagFilter = new FeatureFlagFilter("TestFilter");
         filters.put(0, featureFlagFilter);
-        feature.setEnabledFor(filters);
+        alpha.setEnabledFor(filters);
         Feature gamma = new Feature();
         gamma.setKey("Gamma");
         filters = new HashMap<>();
@@ -290,13 +288,16 @@ public class AppConfigurationPropertySourceTest {
         featureFlagFilter.setParameters(parameters);
         filters.put(0, featureFlagFilter);
         gamma.setEnabledFor(filters);
-        featureSetExpected.addFeature("Alpha", feature);
+        featureSetExpected.addFeature("Alpha", alpha);
         featureSetExpected.addFeature("Beta", true);
         featureSetExpected.addFeature("Gamma", gamma);
-        LinkedHashMap<?, ?> convertedValue = mapper.convertValue(featureSetExpected.getFeatureManagement(),
-            LinkedHashMap.class);
 
-        assertEquals(convertedValue, propertySource.getProperty(FEATURE_MANAGEMENT_KEY));
+        assertEquals(3, propertySource.getPropertyNames().length);
+        assertEquals(alpha.getKey(),
+            ((Feature) propertySource.getProperty(FEATURE_MANAGEMENT_KEY + "." + "Alpha")).getKey());
+        assertEquals(true, propertySource.getProperty(FEATURE_MANAGEMENT_KEY + "." + "Beta"));
+        assertEquals(gamma.getKey(),
+            ((Feature) propertySource.getProperty(FEATURE_MANAGEMENT_KEY + "." + "Gamma")).getKey());
     }
 
     @Test
@@ -369,10 +370,13 @@ public class AppConfigurationPropertySourceTest {
         featureSetExpected.addFeature("Alpha", alpha);
         featureSetExpected.addFeature("Beta", true);
         featureSetExpected.addFeature("Gamma", gamma);
-        LinkedHashMap<?, ?> convertedValue = mapper.convertValue(featureSetExpected.getFeatureManagement(),
-            LinkedHashMap.class);
 
-        assertEquals(convertedValue, propertySource.getProperty(FEATURE_MANAGEMENT_KEY));
+        assertEquals(3, propertySource.getPropertyNames().length);
+        assertEquals(alpha.getKey(),
+            ((Feature) propertySource.getProperty(FEATURE_MANAGEMENT_KEY + "." + "Alpha")).getKey());
+        assertEquals(true, propertySource.getProperty(FEATURE_MANAGEMENT_KEY + "." + "Beta"));
+        assertEquals(gamma.getKey(),
+            ((Feature) propertySource.getProperty(FEATURE_MANAGEMENT_KEY + "." + "Gamma")).getKey());
     }
 
     @Test
@@ -460,7 +464,8 @@ public class AppConfigurationPropertySourceTest {
         LinkedHashMap<?, ?> convertedValue = mapper.convertValue(featureSetExpected.getFeatureManagement(),
             LinkedHashMap.class);
 
-        assertEquals(convertedValue.toString().length(),
-            propertySource.getProperty(FEATURE_MANAGEMENT_KEY).toString().length());
+        assertEquals(convertedValue.get("target").toString().length(),
+            mapper.convertValue(propertySource.getProperty(FEATURE_MANAGEMENT_KEY + ".target"),
+                LinkedHashMap.class).toString().length());
     }
 }

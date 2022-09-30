@@ -14,8 +14,8 @@ trigger:
       - sdk/appconfiguration/azure-resourcemanager-appconfiguration/
       - sdk/appconfiguration/azure-spring-cloud-appconfiguration-config/
       - sdk/appconfiguration/azure-spring-cloud-appconfiguration-config-web/
-      - sdk/appconfiguration/azure-spring-cloud-feature-management/
-      - sdk/appconfiguration/azure-spring-cloud-feature-management-web/
+      - sdk/appconfiguration/spring-cloud-azure-feature-management/
+      - sdk/appconfiguration/spring-cloud-azure-feature-management-web/
       - sdk/appconfiguration/azure-spring-cloud-starter-appconfiguration-config/
       - sdk/appconfiguration/azure-spring-cloud-test-appconfiguration-config/
     exclude:
@@ -25,8 +25,8 @@ trigger:
       - sdk/appconfiguration/azure-resourcemanager-appconfiguration/pom.xml
       - sdk/appconfiguration/azure-spring-cloud-appconfiguration-config/pom.xml
       - sdk/appconfiguration/azure-spring-cloud-appconfiguration-config-web/pom.xml
-      - sdk/appconfiguration/azure-spring-cloud-feature-management/pom.xml
-      - sdk/appconfiguration/azure-spring-cloud-feature-management-web/pom.xml
+      - sdk/appconfiguration/spring-cloud-azure-feature-management/pom.xml
+      - sdk/appconfiguration/spring-cloud-azure-feature-management-web/pom.xml
       - sdk/appconfiguration/azure-spring-cloud-starter-appconfiguration-config/pom.xml
       - sdk/appconfiguration/azure-spring-cloud-test-appconfiguration-config/pom.xml
 
@@ -45,8 +45,8 @@ pr:
       - sdk/appconfiguration/azure-resourcemanager-appconfiguration/
       - sdk/appconfiguration/azure-spring-cloud-appconfiguration-config/
       - sdk/appconfiguration/azure-spring-cloud-appconfiguration-config-web/
-      - sdk/appconfiguration/azure-spring-cloud-feature-management/
-      - sdk/appconfiguration/azure-spring-cloud-feature-management-web/
+      - sdk/appconfiguration/spring-cloud-azure-feature-management/
+      - sdk/appconfiguration/spring-cloud-azure-feature-management-web/
       - sdk/appconfiguration/azure-spring-cloud-starter-appconfiguration-config/
       - sdk/appconfiguration/azure-spring-cloud-test-appconfiguration-config/
     exclude:
@@ -56,40 +56,40 @@ pr:
       - sdk/appconfiguration/azure-resourcemanager-appconfiguration/pom.xml
       - sdk/appconfiguration/azure-spring-cloud-appconfiguration-config/pom.xml
       - sdk/appconfiguration/azure-spring-cloud-appconfiguration-config-web/pom.xml
-      - sdk/appconfiguration/azure-spring-cloud-feature-management/pom.xml
-      - sdk/appconfiguration/azure-spring-cloud-feature-management-web/pom.xml
+      - sdk/appconfiguration/spring-cloud-azure-feature-management/pom.xml
+      - sdk/appconfiguration/spring-cloud-azure-feature-management-web/pom.xml
       - sdk/appconfiguration/azure-spring-cloud-starter-appconfiguration-config/pom.xml
       - sdk/appconfiguration/azure-spring-cloud-test-appconfiguration-config/pom.xml
 
 parameters:
-- name: release_azuredataappconfiguration
-  displayName: 'azure-data-appconfiguration'
-  type: boolean
-  default: true
-- name: release_azurespringcloudappconfigurationconfig
-  displayName: 'azure-spring-cloud-appconfiguration-config'
-  type: boolean
-  default: true
-- name: release_azurespringcloudappconfigurationconfigweb
-  displayName: 'azure-spring-cloud-appconfiguration-config-web'
-  type: boolean
-  default: true
-- name: release_azurespringcloudfeaturemanagement
-  displayName: 'azure-spring-cloud-feature-management'
-  type: boolean
-  default: true
-- name: release_azurespringcloudfeaturemanagementweb
-  displayName: 'azure-spring-cloud-feature-management-web'
-  type: boolean
-  default: true
-- name: release_azurespringcloudstarterappconfigurationconfig
-  displayName: 'azure-spring-cloud-starter-appconfiguration-config'
-  type: boolean
-  default: true
-- name: release_azureresourcemanagerappconfiguration
-  displayName: 'azure-resourcemanager-appconfiguration'
-  type: boolean
-  default: false
+  - name: release_azuredataappconfiguration
+    displayName: "azure-data-appconfiguration"
+    type: boolean
+    default: true
+  - name: release_azurespringcloudappconfigurationconfig
+    displayName: "azure-spring-cloud-appconfiguration-config"
+    type: boolean
+    default: true
+  - name: release_azurespringcloudappconfigurationconfigweb
+    displayName: "azure-spring-cloud-appconfiguration-config-web"
+    type: boolean
+    default: true
+  - name: release_azurespringcloudfeaturemanagement
+    displayName: "spring-cloud-azure-feature-management"
+    type: boolean
+    default: true
+  - name: release_azurespringcloudfeaturemanagementweb
+    displayName: "spring-cloud-azure-feature-management-web"
+    type: boolean
+    default: true
+  - name: release_azurespringcloudstarterappconfigurationconfig
+    displayName: "azure-spring-cloud-starter-appconfiguration-config"
+    type: boolean
+    default: true
+  - name: release_azureresourcemanagerappconfiguration
+    displayName: "azure-resourcemanager-appconfiguration"
+    type: boolean
+    default: false
 
 extends:
   template: ../../eng/pipelines/templates/stages/archetype-sdk-client.yml
@@ -109,11 +109,11 @@ extends:
         groupId: com.azure.spring
         safeName: azurespringcloudappconfigurationconfigweb
         releaseInBatch: ${{ parameters.release_azurespringcloudappconfigurationconfigweb }}
-      - name: azure-spring-cloud-feature-management
+      - name: spring-cloud-azure-feature-management
         groupId: com.azure.spring
         safeName: azurespringcloudfeaturemanagement
         releaseInBatch: ${{ parameters.release_azurespringcloudfeaturemanagement }}
-      - name: azure-spring-cloud-feature-management-web
+      - name: spring-cloud-azure-feature-management-web
         groupId: com.azure.spring
         safeName: azurespringcloudfeaturemanagementweb
         releaseInBatch: ${{ parameters.release_azurespringcloudfeaturemanagementweb }}

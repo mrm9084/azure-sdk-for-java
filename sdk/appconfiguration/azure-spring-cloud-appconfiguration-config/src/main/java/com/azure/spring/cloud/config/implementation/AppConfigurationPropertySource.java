@@ -250,8 +250,13 @@ public final class AppConfigurationPropertySource extends EnumerablePropertySour
      * @param featureSet Feature Flag info to be set to this property source.
      */
     void initFeatures(FeatureSet featureSet) {
-        properties.put(FEATURE_MANAGEMENT_KEY,
-            FEATURE_MAPPER.convertValue(featureSet.getFeatureManagement(), LinkedHashMap.class));
+        if (featureSet.getFeatureManagement() == null) {
+            return;
+        }
+        for (String feature: featureSet.getFeatureManagement().keySet()) {
+            properties.put(FEATURE_MANAGEMENT_KEY + "." + feature, 
+                featureSet.getFeatureManagement().get(feature));
+        }
     }
 
     private FeatureSet addToFeatureSet(FeatureSet featureSet, List<ConfigurationSetting> features)
