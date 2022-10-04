@@ -477,6 +477,24 @@
           "justification": "Public Api from azure-spring-cloud-feature-management"
         },
         {
+          "regex": true,
+          "code": "java.class.externalClassExposedInAPI",
+          "new": "class com.azure.spring.cloud.feature.manager.DynamicFeatureManager",
+          "justification": "Public Api from azure-spring-cloud-feature-management"
+        },
+        {
+          "regex": true,
+          "code": "java.class.externalClassExposedInAPI",
+          "new": "class com.azure.spring.cloud.feature.manager.FeatureManagementException",
+          "justification": "Public Api from azure-spring-cloud-feature-management"
+        },
+        {
+          "regex": true,
+          "code": "java.field.removedWithConstant",
+          "old": "field com.azure.spring.cloud.config.AppConfigurationConstants.FEATURE_MANAGEMENT_KEY",
+          "justification": "Public Api from azure-spring-cloud-feature-management"
+        },
+        {
           "code": "java.method.numberOfParametersChanged",
           "new": "method void com.azure.spring.cloud.autoconfigure.aad.AadAuthenticationFilterAutoConfiguration::<init>(com.azure.spring.cloud.autoconfigure.aad.properties.AadAuthenticationProperties, org.springframework.boot.web.client.RestTemplateBuilder)",
           "justification": "Bean configuration will not be used by customer in java code."

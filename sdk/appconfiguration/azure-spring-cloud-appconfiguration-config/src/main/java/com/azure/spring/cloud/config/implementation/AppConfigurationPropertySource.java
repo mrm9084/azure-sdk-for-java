@@ -2,10 +2,8 @@
 // Licensed under the MIT License.
 package com.azure.spring.cloud.config.implementation;
 
-import static com.azure.spring.cloud.config.AppConfigurationConstants.FEATURE_FLAG_PREFIX;
-import static com.azure.spring.cloud.config.AppConfigurationConstants.FEATURE_MANAGEMENT_KEY;
-import static java.util.Collections.emptyList;
-import static java.util.stream.Collectors.toMap;
+import static com.azure.spring.cloud.config.AppConfigurationConstants.DYNAMIC_FEATURE_CONTENT_TYPE;
+import static com.azure.spring.cloud.config.AppConfigurationConstants.DYNAMIC_FEATURE_KEY;
 
 import java.io.IOException;
 import java.net.URI;
@@ -18,7 +16,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.stream.IntStream;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,14 +26,13 @@ import org.springframework.util.StringUtils;
 import com.azure.data.appconfiguration.ConfigurationClient;
 import com.azure.data.appconfiguration.models.ConfigurationSetting;
 import com.azure.data.appconfiguration.models.FeatureFlagConfigurationSetting;
-import com.azure.data.appconfiguration.models.FeatureFlagFilter;
 import com.azure.data.appconfiguration.models.SecretReferenceConfigurationSetting;
 import com.azure.data.appconfiguration.models.SettingSelector;
 import com.azure.security.keyvault.secrets.models.KeyVaultSecret;
 import com.azure.spring.cloud.config.KeyVaultCredentialProvider;
 import com.azure.spring.cloud.config.KeyVaultSecretProvider;
 import com.azure.spring.cloud.config.SecretClientBuilderSetup;
-import com.azure.spring.cloud.config.feature.management.entity.Feature;
+import com.azure.spring.cloud.config.feature.management.entity.DynamicFeature;
 import com.azure.spring.cloud.config.feature.management.entity.FeatureSet;
 import com.azure.spring.cloud.config.properties.AppConfigurationProperties;
 import com.azure.spring.cloud.config.properties.AppConfigurationProviderProperties;
@@ -44,8 +40,6 @@ import com.azure.spring.cloud.config.properties.AppConfigurationStoreSelects;
 import com.azure.spring.cloud.config.properties.ConfigStore;
 import com.azure.spring.cloud.config.properties.FeatureFlagStore;
 import com.azure.spring.cloud.config.stores.KeyVaultClient;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.json.JsonMapper;
@@ -54,34 +48,16 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
  * Azure App Configuration PropertySource unique per Store Label(Profile) combo.
  *
  * <p>
- * i.e. If connecting to 2 stores and have 2 labels set 4 AppConfigurationPropertySources need to be created.
+ * i.e. If connecting to 2 stores and have 2 labels set 4
+ * AppConfigurationPropertySources need to be created.
  * </p>
  */
 public final class AppConfigurationPropertySource extends EnumerablePropertySource<ConfigurationClient> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AppConfigurationPropertySource.class);
 
-    private static final String USERS = "users";
-
-    private static final String USERS_CAPS = "Users";
-
-    private static final String AUDIENCE = "Audience";
-
-    private static final String GROUPS = "groups";
-
-    private static final String GROUPS_CAPS = "Groups";
-
-    private static final String TARGETING_FILTER = "targetingFilter";
-
-    private static final String DEFAULT_ROLLOUT_PERCENTAGE = "defaultRolloutPercentage";
-
-    private static final String DEFAULT_ROLLOUT_PERCENTAGE_CAPS = "DefaultRolloutPercentage";
-
-    private static final ObjectMapper CASE_INSENSITIVE_MAPPER = JsonMapper.builder()
-        .configure(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES, true).build();
-
     private static final ObjectMapper FEATURE_MAPPER = JsonMapper.builder()
-        .propertyNamingStrategy(PropertyNamingStrategies.KEBAB_CASE).build();
+            .propertyNamingStrategy(PropertyNamingStrategies.KEBAB_CASE).build();
 
     private final AppConfigurationStoreSelects selectedKeys;
 
@@ -105,15 +81,18 @@ public final class AppConfigurationPropertySource extends EnumerablePropertySour
 
     private final FeatureFlagStore featureStore;
 
+    private final FeatureManagementMapper featureManagementMapper;
+
     AppConfigurationPropertySource(ConfigStore configStore, AppConfigurationStoreSelects selectedKeys,
-        List<String> profiles, AppConfigurationProperties appConfigurationProperties,
-        AppConfigurationReplicaClient replicaClient,
-        AppConfigurationProviderProperties appProperties, KeyVaultCredentialProvider keyVaultCredentialProvider,
-        SecretClientBuilderSetup keyVaultClientProvider, KeyVaultSecretProvider keyVaultSecretProvider) {
+            List<String> profiles, AppConfigurationProperties appConfigurationProperties,
+            AppConfigurationReplicaClient replicaClient,
+            AppConfigurationProviderProperties appProperties, KeyVaultCredentialProvider keyVaultCredentialProvider,
+            SecretClientBuilderSetup keyVaultClientProvider, KeyVaultSecretProvider keyVaultSecretProvider) {
         // The context alone does not uniquely define a PropertySource, append storeName
         // and label to uniquely define a PropertySource
         super(
-            selectedKeys.getKeyFilter() + configStore.getEndpoint() + "/" + selectedKeys.getLabelFilterText(profiles));
+                selectedKeys.getKeyFilter() + configStore.getEndpoint() + "/"
+                        + selectedKeys.getLabelFilterText(profiles));
         this.featureStore = configStore.getFeatureFlags();
         this.selectedKeys = selectedKeys;
         this.profiles = profiles;
@@ -124,13 +103,7 @@ public final class AppConfigurationPropertySource extends EnumerablePropertySour
         this.keyVaultCredentialProvider = keyVaultCredentialProvider;
         this.keyVaultClientProvider = keyVaultClientProvider;
         this.keyVaultSecretProvider = keyVaultSecretProvider;
-    }
-
-    private static List<Object> convertToListOrEmptyList(Map<String, Object> parameters, String key) {
-        List<Object> listObjects = CASE_INSENSITIVE_MAPPER.convertValue(parameters.get(key),
-            new TypeReference<List<Object>>() {
-            });
-        return listObjects == null ? emptyList() : listObjects;
+        featureManagementMapper = new FeatureManagementMapper();
     }
 
     @Override
@@ -150,16 +123,21 @@ public final class AppConfigurationPropertySource extends EnumerablePropertySour
      * </p>
      *
      * <p>
-     * <b>Note</b>: Doesn't update Feature Management, just stores values in cache. Call {@code initFeatures} to update
-     * Feature Management, but make sure its done in the last {@code AppConfigurationPropertySource}
+     * <b>Note</b>: Doesn't update Feature Management, just stores values in cache.
+     * Call {@code initFeatures} to update
+     * Feature Management, but make sure its done in the last
+     * {@code AppConfigurationPropertySource}
      * AppConfigurationPropertySource}
      * </p>
      *
-     * @param featureSet The set of Feature Management Flags from various config stores.
+     * @param featureSet The set of Feature Management Flags from various config
+     *                   stores.
      * @return Updated Feature Set from Property Source
-     * @throws IOException Thrown when processing key/value failed when reading feature flags
-     * @throws AppConfigurationStatusException An error occurred in connecting, and should be retried on a replica if
-     * possible.
+     * @throws IOException                     Thrown when processing key/value
+     *                                         failed when reading feature flags
+     * @throws AppConfigurationStatusException An error occurred in connecting, and
+     *                                         should be retried on a replica if
+     *                                         possible.
      */
     FeatureSet initProperties(FeatureSet featureSet) throws IOException, AppConfigurationStatusException {
         SettingSelector settingSelector = new SettingSelector();
@@ -177,7 +155,7 @@ public final class AppConfigurationPropertySource extends EnumerablePropertySour
 
         for (String label : labels) {
             settingSelector = new SettingSelector().setKeyFilter(selectedKeys.getKeyFilter() + "*")
-                .setLabelFilter(label);
+                    .setLabelFilter(label);
 
             // * for wildcard match
             List<ConfigurationSetting> settings = replicaClient.listConfigurationSettings(settingSelector);
@@ -191,7 +169,7 @@ public final class AppConfigurationPropertySource extends EnumerablePropertySour
                         properties.put(key, entry);
                     }
                 } else if (StringUtils.hasText(setting.getContentType())
-                    && JsonConfigurationParser.isJsonContentType(setting.getContentType())) {
+                        && JsonConfigurationParser.isJsonContentType(setting.getContentType())) {
                     Map<String, Object> jsonSettings = JsonConfigurationParser.parseJsonSetting(setting);
                     for (Entry<String, Object> jsonSetting : jsonSettings.entrySet()) {
                         key = jsonSetting.getKey().trim().substring(selectedKeys.getKeyFilter().length());
@@ -206,9 +184,11 @@ public final class AppConfigurationPropertySource extends EnumerablePropertySour
     }
 
     /**
-     * Given a Setting's Key Vault Reference stored in the Settings value, it will get its entry in Key Vault.
+     * Given a Setting's Key Vault Reference stored in the Settings value, it will
+     * get its entry in Key Vault.
      *
-     * @param secretReference {"uri": "&lt;your-vault-url&gt;/secret/&lt;secret&gt;/&lt;version&gt;"}
+     * @param secretReference {"uri":
+     *                        "&lt;your-vault-url&gt;/secret/&lt;secret&gt;/&lt;version&gt;"}
      * @return Key Vault Secret Value
      */
     private String getKeyVaultEntry(SecretReferenceConfigurationSetting secretReference) {
@@ -228,7 +208,7 @@ public final class AppConfigurationPropertySource extends EnumerablePropertySour
             // one
             if (!keyVaultClients.containsKey(uri.getHost())) {
                 KeyVaultClient client = new KeyVaultClient(appConfigurationProperties, uri, keyVaultCredentialProvider,
-                    keyVaultClientProvider, keyVaultSecretProvider);
+                        keyVaultClientProvider, keyVaultSecretProvider);
                 keyVaultClients.put(uri.getHost(), client);
             }
             KeyVaultSecret secret = keyVaultClients.get(uri.getHost()).getSecret(uri, appProperties.getMaxRetryTime());
@@ -244,7 +224,8 @@ public final class AppConfigurationPropertySource extends EnumerablePropertySour
     }
 
     /**
-     * Initializes Feature Management configurations. Only one {@code AppConfigurationPropertySource} can call this, and
+     * Initializes Feature Management configurations. Only one
+     * {@code AppConfigurationPropertySource} can call this, and
      * it needs to be done after the rest have run initProperties.
      *
      * @param featureSet Feature Flag info to be set to this property source.
@@ -253,89 +234,31 @@ public final class AppConfigurationPropertySource extends EnumerablePropertySour
         if (featureSet.getFeatureManagement() == null) {
             return;
         }
-        for (String feature: featureSet.getFeatureManagement().keySet()) {
-            properties.put(FEATURE_MANAGEMENT_KEY + "." + feature, 
-                featureSet.getFeatureManagement().get(feature));
+        for (String feature : featureSet.getFeatureManagement().keySet()) {
+            properties.put(featureManagementMapper.getFeatureSchema() + "." + feature,
+                    featureSet.getFeatureManagement().get(feature));
         }
     }
 
     private FeatureSet addToFeatureSet(FeatureSet featureSet, List<ConfigurationSetting> features)
-        throws IOException {
+            throws IOException {
         if (features == null) {
             return featureSet;
         }
         // Reading In Features
         for (ConfigurationSetting setting : features) {
             if (setting instanceof FeatureFlagConfigurationSetting) {
-                Object feature = createFeature((FeatureFlagConfigurationSetting) setting);
-                featureSet.addFeature(setting.getKey().trim().substring(FEATURE_FLAG_PREFIX.length()), feature);
+                FeatureFlagConfigurationSetting featureSetting = (FeatureFlagConfigurationSetting) setting;
+                Object feature = featureManagementMapper.createFeature(featureSetting);
+                featureSet.addFeature(featureSetting.getFeatureId(), feature);
+            } else if (DYNAMIC_FEATURE_CONTENT_TYPE.equalsIgnoreCase(setting.getContentType())
+                    && featureManagementMapper.getFeatureSchemaVersion() >= 2) {
+                DynamicFeature dynamicFeature = featureManagementMapper.createDynamicFeature(setting);
+                properties.put(DYNAMIC_FEATURE_KEY + dynamicFeature.getName(),
+                        FEATURE_MAPPER.convertValue(dynamicFeature, LinkedHashMap.class));
             }
         }
         return featureSet;
     }
 
-    /**
-     * Creates a {@code Feature} from a {@code KeyValueItem}
-     *
-     * @param item Used to create Features before being converted to be set into properties.
-     * @return Feature created from KeyValueItem
-     */
-    @SuppressWarnings("unchecked")
-    private Object createFeature(FeatureFlagConfigurationSetting item) {
-        String key = getFeatureSimpleName(item);
-        Feature feature = new Feature(key, item);
-        Map<Integer, FeatureFlagFilter> featureEnabledFor = feature.getEnabledFor();
-
-        // Setting Enabled For to null, but enabled = true will result in the feature
-        // being on. This is the case of a feature is on/off and set to on. This is to
-        // tell the difference between conditional/off which looks exactly the same...
-        // It should never be the case of Conditional On, and no filters coming from
-        // Azure, but it is a valid way from the config file, which should result in
-        // false being returned.
-        if (featureEnabledFor.size() == 0 && item.isEnabled()) {
-            return true;
-        } else if (!item.isEnabled()) {
-            return false;
-        }
-        for (int filter = 0; filter < feature.getEnabledFor().size(); filter++) {
-            FeatureFlagFilter featureFilterEvaluationContext = featureEnabledFor.get(filter);
-            Map<String, Object> parameters = featureFilterEvaluationContext.getParameters();
-
-            if (parameters == null || !TARGETING_FILTER.equals(featureEnabledFor.get(filter).getName())) {
-                continue;
-            }
-
-            Object audienceObject = parameters.get(AUDIENCE);
-            if (audienceObject != null) {
-                parameters = (Map<String, Object>) audienceObject;
-            }
-
-            List<Object> users = convertToListOrEmptyList(parameters, USERS_CAPS);
-            List<Object> groupRollouts = convertToListOrEmptyList(parameters, GROUPS_CAPS);
-
-            switchKeyValues(parameters, USERS_CAPS, USERS, mapValuesByIndex(users));
-            switchKeyValues(parameters, GROUPS_CAPS, GROUPS, mapValuesByIndex(groupRollouts));
-            switchKeyValues(parameters, DEFAULT_ROLLOUT_PERCENTAGE_CAPS, DEFAULT_ROLLOUT_PERCENTAGE,
-                parameters.get(DEFAULT_ROLLOUT_PERCENTAGE_CAPS));
-
-            featureFilterEvaluationContext.setParameters(parameters);
-            featureEnabledFor.put(filter, featureFilterEvaluationContext);
-            feature.setEnabledFor(featureEnabledFor);
-        }
-        return feature;
-
-    }
-
-    private String getFeatureSimpleName(ConfigurationSetting setting) {
-        return setting.getKey().trim().substring(FEATURE_FLAG_PREFIX.length());
-    }
-
-    private Map<String, Object> mapValuesByIndex(List<Object> users) {
-        return IntStream.range(0, users.size()).boxed().collect(toMap(String::valueOf, users::get));
-    }
-
-    private void switchKeyValues(Map<String, Object> parameters, String oldKey, String newKey, Object value) {
-        parameters.put(newKey, value);
-        parameters.remove(oldKey);
-    }
 }

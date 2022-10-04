@@ -4,7 +4,6 @@ package com.azure.spring.cloud.feature.manager;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-
 import org.springframework.stereotype.Component;
 
 /**
@@ -17,7 +16,7 @@ public interface IDisabledFeaturesHandler {
     /**
      * Called when an endpoint intercepter returns and no redirect is set.
      *
-     * @param request  current HTTP
+     * @param request current HTTP
      * @param response current HTTP
      * @return response to current HTTP request
      */

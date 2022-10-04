@@ -4,20 +4,17 @@ package com.azure.spring.cloud.feature.manager;
 
 import java.util.HashMap;
 
-import org.springframework.context.annotation.Configuration;
-
 import reactor.core.publisher.Mono;
 
 /**
  * Holds information on Feature Management properties and can check if a given feature is enabled. Returns the same
  * value in the same request.
  */
-@Configuration
 public class FeatureManagerSnapshot {
 
-    private FeatureManager featureManager;
+    private final FeatureManager featureManager;
 
-    private HashMap<String, Boolean> requestMap;
+    private final HashMap<String, Boolean> requestMap;
 
     /**
      * Used to evaluate whether a feature is enabled or disabled. When setup with the <code>@RequestScope</code> it will

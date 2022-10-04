@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 
 import com.azure.data.appconfiguration.models.ConfigurationSetting;
 import com.azure.data.appconfiguration.models.SettingSelector;
+import com.azure.spring.cloud.config.NormalizeNull;
 import com.azure.spring.cloud.config.pipline.policies.BaseAppConfigurationPolicy;
 import com.azure.spring.cloud.config.properties.AppConfigurationStoreMonitoring;
 import com.azure.spring.cloud.config.properties.FeatureFlagStore;
@@ -206,6 +207,7 @@ class AppConfigurationRefreshUtil {
             int watchedKeySize = 0;
 
             keyCheck: for (ConfigurationSetting currentKey : currentKeys) {
+                currentKey =  NormalizeNull.normalizeNullLabel(currentKey);
 
                 watchedKeySize += 1;
                 for (ConfigurationSetting watchFlag : state.getWatchKeys()) {

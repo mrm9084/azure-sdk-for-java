@@ -48,8 +48,10 @@ public final class AppConfigurationStoreSelects {
     }
 
     /**
-     * @param profiles List of current Spring profiles to default to using is null label is set.
-     * @return List of reversed label values, which are split by the separator, the latter label has higher priority
+     * @param profiles List of current Spring profiles to default to using is null
+     *                 label is set.
+     * @return List of reversed label values, which are split by the separator, the
+     *         latter label has higher priority
      */
     public String[] getLabelFilter(List<String> profiles) {
         if (labelFilter == null && profiles.size() > 0) {
@@ -61,9 +63,9 @@ public final class AppConfigurationStoreSelects {
 
         // The use of trim makes label= dev,prod and label= dev, prod equal.
         List<String> labels = Arrays.stream(labelFilter.split(LABEL_SEPARATOR))
-            .map(this::mapLabel)
-            .distinct()
-            .collect(Collectors.toList());
+                .map(this::mapLabel)
+                .distinct()
+                .collect(Collectors.toList());
 
         if (labelFilter.endsWith(",")) {
             labels.add(EMPTY_LABEL);
@@ -76,6 +78,7 @@ public final class AppConfigurationStoreSelects {
 
     /**
      * Get all labels as a single String
+     * 
      * @param profiles current user profiles
      * @return comma separated list of labels
      */
