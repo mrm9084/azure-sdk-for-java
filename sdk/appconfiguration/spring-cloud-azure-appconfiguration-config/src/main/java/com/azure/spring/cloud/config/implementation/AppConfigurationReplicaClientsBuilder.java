@@ -231,5 +231,4 @@ public class AppConfigurationReplicaClientsBuilder extends ConfigurationClientBu
         }
 
     }
-
 }

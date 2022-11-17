@@ -46,5 +46,4 @@ public class AppConfigurationKeyVaultClientFactory {
     public boolean isConfigured() {
         return isConfigured;
     }
-
 }

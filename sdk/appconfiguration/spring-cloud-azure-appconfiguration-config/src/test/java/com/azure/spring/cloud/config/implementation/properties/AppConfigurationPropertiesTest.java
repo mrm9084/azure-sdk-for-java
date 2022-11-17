@@ -140,14 +140,14 @@ public class AppConfigurationPropertiesTest {
         List<String> endpoints = new ArrayList<>();
         endpoints.add(TEST_ENDPOINT);
         endpoints.add(TEST_ENDPOINT_GEO);
-
+        
         store.setEndpoints(endpoints);
         List<ConfigStore> stores = new ArrayList<>();
         stores.add(store);
-
+        
         properties.setStores(stores);
         properties.validateAndInit();
-
+        
         endpoints.clear();
         endpoints.add(TEST_ENDPOINT);
         endpoints.add(TEST_ENDPOINT);
