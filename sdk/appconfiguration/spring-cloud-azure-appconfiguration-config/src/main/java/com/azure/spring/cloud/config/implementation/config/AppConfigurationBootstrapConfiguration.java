@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 package com.azure.spring.cloud.config.implementation.config;
 
+import java.util.Optional;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -18,10 +20,12 @@ import com.azure.spring.cloud.config.KeyVaultSecretProvider;
 import com.azure.spring.cloud.config.SecretClientBuilderSetup;
 import com.azure.spring.cloud.config.implementation.AppConfigurationKeyVaultClientFactory;
 import com.azure.spring.cloud.config.implementation.AppConfigurationPropertySourceLocator;
+import com.azure.spring.cloud.config.implementation.AppConfigurationProviderGlobalProperties;
 import com.azure.spring.cloud.config.implementation.AppConfigurationReplicaClientFactory;
 import com.azure.spring.cloud.config.implementation.AppConfigurationReplicaClientsBuilder;
 import com.azure.spring.cloud.config.implementation.properties.AppConfigurationProperties;
 import com.azure.spring.cloud.config.implementation.properties.AppConfigurationProviderProperties;
+import com.azure.spring.cloud.service.implementation.appconfiguration.ConfigurationClientProperties;
 
 /**
  * Setup ConnectionPool, AppConfigurationPropertySourceLocator, and ClientStore when
@@ -60,9 +64,7 @@ public class AppConfigurationBootstrapConfiguration {
      * @throws IllegalArgumentException if both KeyVaultClientProvider and KeyVaultSecretProvider exist.
      */
     @Bean
-    AppConfigurationKeyVaultClientFactory keyVaultClientFactory(AppConfigurationProperties appConfigurationProperties)
-        throws IllegalArgumentException {
-
+    AppConfigurationKeyVaultClientFactory keyVaultClientFactory() throws IllegalArgumentException {
         KeyVaultCredentialProvider keyVaultCredentialProvider = context
             .getBeanProvider(KeyVaultCredentialProvider.class).getIfAvailable();
         SecretClientBuilderSetup keyVaultClientProvider = context.getBeanProvider(SecretClientBuilderSetup.class)
@@ -70,13 +72,8 @@ public class AppConfigurationBootstrapConfiguration {
         KeyVaultSecretProvider keyVaultSecretProvider = context.getBeanProvider(KeyVaultSecretProvider.class)
             .getIfAvailable();
 
-        if (keyVaultClientProvider != null && keyVaultSecretProvider != null) {
-            throw new IllegalArgumentException(
-                "KeyVaultClientProvider and KeyVaultSecretProvider both can't have Beans supplied.");
-        }
-
         return new AppConfigurationKeyVaultClientFactory(keyVaultCredentialProvider, keyVaultClientProvider,
-            keyVaultSecretProvider, appConfigurationProperties.getClientId());
+            keyVaultSecretProvider);
     }
 
     /**
@@ -102,27 +99,20 @@ public class AppConfigurationBootstrapConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean
-    AppConfigurationReplicaClientsBuilder replicaClientBuilder(AppConfigurationProperties properties,
-        AppConfigurationProviderProperties appProperties) {
+    AppConfigurationReplicaClientsBuilder replicaClientBuilder(AppConfigurationProviderProperties appProperties,
+        Optional<ConfigurationClientProperties> configClientProperties,
+        AppConfigurationKeyVaultClientFactory keyVaultClientFactory) {
 
         AppConfigurationReplicaClientsBuilder clientBuilder = new AppConfigurationReplicaClientsBuilder(
-            appProperties.getMaxRetries());
+            configClientProperties.orElse(new AppConfigurationProviderGlobalProperties()), appProperties.getMaxRetries());
 
         clientBuilder.setTokenCredentialProvider(
             context.getBeanProvider(AppConfigurationCredentialProvider.class).getIfAvailable());
         clientBuilder
             .setClientProvider(context.getBeanProvider(ConfigurationClientBuilderSetup.class)
                 .getIfAvailable());
-        clientBuilder.setClientId(properties.getClientId());
 
-        KeyVaultCredentialProvider keyVaultCredentialProvider = context
-            .getBeanProvider(KeyVaultCredentialProvider.class).getIfAvailable();
-        SecretClientBuilderSetup keyVaultClientProvider = context.getBeanProvider(SecretClientBuilderSetup.class)
-            .getIfAvailable();
-
-        if (keyVaultCredentialProvider != null || keyVaultClientProvider != null) {
-            clientBuilder.setKeyVaultConfigured(true);
-        }
+        clientBuilder.setIsKeyVaultConfigured(keyVaultClientFactory.isConfigured());
 
         return clientBuilder;
     }

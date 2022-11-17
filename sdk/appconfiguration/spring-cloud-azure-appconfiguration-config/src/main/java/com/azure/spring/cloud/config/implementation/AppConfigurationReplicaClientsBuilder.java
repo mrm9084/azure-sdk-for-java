@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 package com.azure.spring.cloud.config.implementation;
 
+import static com.azure.spring.cloud.core.implementation.converter.AzureHttpLogOptionsConverter.HTTP_LOG_OPTIONS_CONVERTER;
+
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -17,6 +19,7 @@ import org.springframework.util.StringUtils;
 
 import com.azure.core.credential.TokenCredential;
 import com.azure.core.http.policy.ExponentialBackoff;
+import com.azure.core.http.policy.HttpLogOptions;
 import com.azure.core.http.policy.RetryPolicy;
 import com.azure.data.appconfiguration.ConfigurationClientBuilder;
 import com.azure.identity.ManagedIdentityCredentialBuilder;
@@ -24,8 +27,12 @@ import com.azure.spring.cloud.config.AppConfigurationCredentialProvider;
 import com.azure.spring.cloud.config.ConfigurationClientBuilderSetup;
 import com.azure.spring.cloud.config.implementation.pipline.policies.BaseAppConfigurationPolicy;
 import com.azure.spring.cloud.config.implementation.properties.ConfigStore;
+import com.azure.spring.cloud.core.provider.ClientOptionsProvider;
+import com.azure.spring.cloud.service.implementation.appconfiguration.ConfigurationClientBuilderFactory;
+import com.azure.spring.cloud.service.implementation.appconfiguration.ConfigurationClientProperties;
 
-public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
+public class AppConfigurationReplicaClientsBuilder extends ConfigurationClientBuilderFactory
+    implements EnvironmentAware {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AppConfigurationReplicaClientsBuilder.class);
 
@@ -59,11 +66,11 @@ public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
 
     private boolean isKeyVaultConfigured = false;
 
-    private String clientId = "";
-
     private final int maxRetries;
 
-    public AppConfigurationReplicaClientsBuilder(int maxRetries) {
+    public AppConfigurationReplicaClientsBuilder(ConfigurationClientProperties configurationClientProperties,
+        int maxRetries) {
+        super(configurationClientProperties);
         this.maxRetries = maxRetries;
     }
 
@@ -103,25 +110,8 @@ public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
         this.clientProvider = clientProvider;
     }
 
-    /**
-     * @param isDev the isDev to set
-     */
-    public void setDev(boolean isDev) {
-        this.isDev = isDev;
-    }
-
-    /**
-     * @param isKeyVaultConfigured the isKeyVaultConfigured to set
-     */
-    public void setKeyVaultConfigured(boolean isKeyVaultConfigured) {
+    public void setIsKeyVaultConfigured(boolean isKeyVaultConfigured) {
         this.isKeyVaultConfigured = isKeyVaultConfigured;
-    }
-
-    /**
-     * @param clientId the clientId to set
-     */
-    public void setClientId(String clientId) {
-        this.clientId = clientId;
     }
 
     /**
@@ -148,96 +138,63 @@ public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
             tokenCredential = tokenCredentialProvider.getAppConfigCredential(configStore.getEndpoint());
         }
 
-        boolean clientIdIsPresent = StringUtils.hasText(clientId);
         boolean tokenCredentialIsPresent = tokenCredential != null;
         boolean connectionStringIsPresent = configStore.getConnectionString() != null;
 
-        if ((tokenCredentialIsPresent || clientIdIsPresent)
-            && connectionStringIsPresent) {
-            throw new IllegalArgumentException(
-                "More than 1 Connection method was set for connecting to App Configuration.");
-        } else if (tokenCredential != null && clientIdIsPresent) {
+        if (tokenCredentialIsPresent && connectionStringIsPresent) {
             throw new IllegalArgumentException(
                 "More than 1 Connection method was set for connecting to App Configuration.");
         }
 
-        ConfigurationClientBuilder builder = getBuilder();
+        List<String> connectionStrings = configStore.getConnectionStrings();
+        List<String> endpoints = configStore.getEndpoints();
 
-        if (configStore.getConnectionString() != null) {
-            clients.add(buildClientConnectionString(configStore.getConnectionString(), builder, 0));
-        } else if (configStore.getConnectionStrings().size() > 0) {
-            for (String connectionString : configStore.getConnectionStrings()) {
-                clients.add(buildClientConnectionString(connectionString, builder,
-                    configStore.getConnectionStrings().size() - 1));
+        if (connectionStrings.size() == 0 && StringUtils.hasText(configStore.getConnectionString())) {
+            connectionStrings.add(configStore.getConnectionString());
+        }
+
+        if (endpoints.size() == 0 && StringUtils.hasText(configStore.getEndpoint())) {
+            endpoints.add(configStore.getEndpoint());
+        }
+
+        if (connectionStrings.size() > 0) {
+            for (String connectionString : connectionStrings) {
+                String endpoint = getEndpointFromConnectionString(connectionString);
+                LOGGER.debug("Connecting to " + endpoint + " using Connecting String.");
+                ConfigurationClientBuilder builder = this.build().connectionString(connectionString);
+                clients.add(modifyAndBuildClient(builder, endpoint, connectionStrings.size() - 1));
             }
-        } else if (configStore.getEndpoints().size() > 0) {
-            for (String endpoint : configStore.getEndpoints()) {
-                clients.add(buildClientEndpoint(tokenCredential, endpoint, builder, clientIdIsPresent,
-                    configStore.getEndpoints().size() - 1));
+        } else {
+            for (String endpoint : endpoints) {
+                ConfigurationClientBuilder builder = this.build();
+                if (tokenCredential != null) {
+                    // User Provided Token Credential
+                    LOGGER.debug("Connecting to " + endpoint + " using AppConfigurationCredentialProvider.");
+                    builder.credential(tokenCredential);
+                } else {
+                    // System Assigned Identity. Needs to be checked last as all of the above should
+                    // have an Endpoint.
+                    LOGGER.debug("Connecting to " + endpoint
+                        + " using Azure System Assigned Identity or Azure User Assigned Identity.");
+                    ManagedIdentityCredentialBuilder micBuilder = new ManagedIdentityCredentialBuilder();
+                    builder.credential(micBuilder.build());
+                }
+
+                builder.endpoint(endpoint);
+
+                clients.add(modifyAndBuildClient(builder, endpoint, endpoints.size() - 1));
             }
-        } else if (configStore.getEndpoint() != null) {
-            clients.add(buildClientEndpoint(tokenCredential, configStore.getEndpoint(), builder, clientIdIsPresent, 0));
         }
         return clients;
     }
 
-    /**
-     * @return creates an instance of ConfigurationClientBuilder
-     */
-    ConfigurationClientBuilder getBuilder() {
-        return new ConfigurationClientBuilder();
-    }
-
-    private AppConfigurationReplicaClient buildClientEndpoint(TokenCredential tokenCredential,
-        String endpoint, ConfigurationClientBuilder builder, boolean clientIdIsPresent, Integer replicaCount)
-        throws IllegalArgumentException {
-        if (tokenCredential != null) {
-            // User Provided Token Credential
-            LOGGER.debug("Connecting to " + endpoint + " using AppConfigurationCredentialProvider.");
-            builder.credential(tokenCredential);
-        } else if (clientIdIsPresent) {
-            // User Assigned Identity - Client ID through configuration file.
-            LOGGER.debug("Connecting to " + endpoint + " using Client ID from configuration file.");
-            ManagedIdentityCredentialBuilder micBuilder = new ManagedIdentityCredentialBuilder()
-                .clientId(clientId);
-            builder.credential(micBuilder.build());
-        } else {
-            // System Assigned Identity. Needs to be checked last as all of the above should
-            // have an Endpoint.
-            LOGGER.debug("Connecting to " + endpoint
-                + " using Azure System Assigned Identity or Azure User Assigned Identity.");
-            ManagedIdentityCredentialBuilder micBuilder = new ManagedIdentityCredentialBuilder();
-            builder.credential(micBuilder.build());
-        }
-
-        builder.endpoint(endpoint);
-
-        return modifyAndBuildClient(builder, endpoint, replicaCount);
-    }
-
-    private AppConfigurationReplicaClient buildClientConnectionString(String connectionString,
-        ConfigurationClientBuilder builder, Integer replicaCount)
-        throws IllegalArgumentException {
-        String endpoint = getEndpointFromConnectionString(connectionString);
-        LOGGER.debug("Connecting to " + endpoint + " using Connecting String.");
-
-        builder.connectionString(connectionString);
-
-        return modifyAndBuildClient(builder, endpoint, replicaCount);
-    }
-
     private AppConfigurationReplicaClient modifyAndBuildClient(ConfigurationClientBuilder builder, String endpoint,
         Integer replicaCount) {
-        ExponentialBackoff retryPolicy = new ExponentialBackoff(maxRetries, DEFAULT_MIN_RETRY_POLICY,
-            DEFAULT_MAX_RETRY_POLICY);
-
-        builder.addPolicy(new BaseAppConfigurationPolicy(isDev, isKeyVaultConfigured, replicaCount))
-            .retryPolicy(new RetryPolicy(retryPolicy));
+        builder.addPolicy(new BaseAppConfigurationPolicy(isDev, isKeyVaultConfigured, replicaCount));
 
         if (clientProvider != null) {
             clientProvider.setup(builder, endpoint);
         }
-
         return new AppConfigurationReplicaClient(endpoint, builder.buildClient());
     }
 
@@ -249,6 +206,30 @@ public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
                 break;
             }
         }
+    }
+
+    @Override
+    protected ConfigurationClientBuilder createBuilderInstance() {
+        ConfigurationClientBuilder builder = new ConfigurationClientBuilder();
+
+        ExponentialBackoff retryPolicy = new ExponentialBackoff(maxRetries, DEFAULT_MIN_RETRY_POLICY,
+            DEFAULT_MAX_RETRY_POLICY);
+
+        builder.retryPolicy(new RetryPolicy(retryPolicy));
+
+        return builder;
+    }
+
+    @Override
+    protected void configureHttpLogOptions(ConfigurationClientBuilder builder) {
+        ClientOptionsProvider.ClientOptions client = getAzureProperties().getClient();
+
+        if (client instanceof ClientOptionsProvider.HttpClientOptions) {
+            HttpLogOptions logOptions = HTTP_LOG_OPTIONS_CONVERTER
+                .convert(((ClientOptionsProvider.HttpClientOptions) client).getLogging());
+            consumeHttpLogOptions().accept(builder, logOptions);
+        }
+
     }
 
 }

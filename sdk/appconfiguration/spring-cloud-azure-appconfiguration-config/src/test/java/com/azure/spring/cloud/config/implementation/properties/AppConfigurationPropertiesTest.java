@@ -45,7 +45,8 @@ public class AppConfigurationPropertiesTest {
 
     @InjectMocks
     private ApplicationContextRunner contextRunner = new ApplicationContextRunner()
-        .withConfiguration(AutoConfigurations.of(AppConfigurationBootstrapConfiguration.class));
+        .withConfiguration(AutoConfigurations.of(AppConfigurationBootstrapConfiguration.class))
+        .withPropertyValues("spring.cloud.azure.appconfiguration.endpoint=https://test-appconfig.azconfig.io");
 
     @BeforeEach
     public void setup() {
@@ -139,18 +140,18 @@ public class AppConfigurationPropertiesTest {
         List<String> endpoints = new ArrayList<>();
         endpoints.add(TEST_ENDPOINT);
         endpoints.add(TEST_ENDPOINT_GEO);
-        
+
         store.setEndpoints(endpoints);
         List<ConfigStore> stores = new ArrayList<>();
         stores.add(store);
-        
+
         properties.setStores(stores);
         properties.validateAndInit();
-        
+
         endpoints.clear();
         endpoints.add(TEST_ENDPOINT);
         endpoints.add(TEST_ENDPOINT);
-        
+
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> properties.validateAndInit());
         assertEquals("Duplicate store name exists.", e.getMessage());
     }
