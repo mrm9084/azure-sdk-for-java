@@ -5,6 +5,10 @@ package com.azure.spring.cloud.config.implementation.stores;
 import java.net.URI;
 import java.time.Duration;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.util.StringUtils;
+
 import com.azure.core.credential.TokenCredential;
 import com.azure.identity.ManagedIdentityCredentialBuilder;
 import com.azure.security.keyvault.secrets.SecretAsyncClient;
@@ -19,6 +23,8 @@ import com.azure.spring.cloud.config.SecretClientBuilderSetup;
  */
 public final class AppConfigurationSecretClientManager {
 
+    private final Logger LOGGER = LoggerFactory.getLogger(AppConfigurationSecretClientManager.class);
+
     private SecretAsyncClient secretClient;
 
     private final SecretClientBuilderSetup keyVaultClientProvider;
@@ -28,8 +34,6 @@ public final class AppConfigurationSecretClientManager {
     private final TokenCredential tokenCredential;
 
     private final KeyVaultSecretProvider keyVaultSecretProvider;
-
-    private Boolean useSecretResolver = false;
 
     /**
      * Creates a Client for connecting to Key Vault
@@ -57,9 +61,6 @@ public final class AppConfigurationSecretClientManager {
         if (tokenCredential != null) {
             // User Provided Token Credential
             builder.credential(tokenCredential);
-        } else if (keyVaultSecretProvider != null) { // This is the Secret Resolver
-            // Use this instead.
-            useSecretResolver = true;
         } else {
             // System Assigned Identity.
             builder.credential(new ManagedIdentityCredentialBuilder().build());
@@ -70,9 +71,7 @@ public final class AppConfigurationSecretClientManager {
             keyVaultClientProvider.setup(builder, endpoint);
         }
 
-        if (!useSecretResolver) {
-            secretClient = builder.buildAsyncClient();
-        }
+        secretClient = builder.buildAsyncClient();
 
         return this;
     }
@@ -85,18 +84,23 @@ public final class AppConfigurationSecretClientManager {
      * @return Secret values that matches the secretIdentifier
      */
     public KeyVaultSecret getSecret(URI secretIdentifier, int timeout) {
-        if (secretClient == null && !useSecretResolver) {
+        LOGGER.error(secretIdentifier.toString() + " - " + secretClient);
+        if (secretClient == null) {
             build();
         }
-
-        if (useSecretResolver) { // Secret Resolver
-            return new KeyVaultSecret(null, keyVaultSecretProvider.getSecret(secretIdentifier.getRawPath()));
-        }
-
+        
         String[] tokens = secretIdentifier.getPath().split("/");
 
         String name = (tokens.length >= 3 ? tokens[2] : null);
         String version = (tokens.length >= 4 ? tokens[3] : null);
+
+        if (keyVaultSecretProvider != null) { // Secret Resolver
+            String secret = keyVaultSecretProvider.getSecret(secretIdentifier.getRawPath());
+            if (StringUtils.hasText(secret)) {
+                return new KeyVaultSecret(name, secret);
+            }
+        }
+
         return secretClient.getSecret(name, version).block(Duration.ofSeconds(timeout));
     }
 
