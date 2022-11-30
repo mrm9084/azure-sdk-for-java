@@ -9,6 +9,7 @@ import java.util.Map.Entry;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.util.StringUtils;
 
 import com.azure.data.appconfiguration.models.ConfigurationSetting;
 import com.azure.data.appconfiguration.models.SettingSelector;
@@ -16,6 +17,9 @@ import com.azure.spring.cloud.config.implementation.pipline.policies.BaseAppConf
 import com.azure.spring.cloud.config.implementation.properties.AppConfigurationStoreMonitoring;
 import com.azure.spring.cloud.config.implementation.properties.FeatureFlagKeyValueSelector;
 import com.azure.spring.cloud.config.implementation.properties.FeatureFlagStore;
+
+import static com.azure.spring.cloud.config.implementation.AppConfigurationConstants.FEATURE_FLAG_PREFIX;
+import static com.azure.spring.cloud.config.implementation.AppConfigurationConstants.FEATURE_STORE_WATCH_KEY;
 
 class AppConfigurationRefreshUtil {
 
@@ -204,7 +208,13 @@ class AppConfigurationRefreshUtil {
         if (date.isAfter(state.getNextRefreshCheck())) {
 
             for (FeatureFlagKeyValueSelector watchKey : featureStore.getSelects()) {
-                SettingSelector selector = new SettingSelector().setKeyFilter(watchKey.getKeyFilter())
+                String keyFilter = FEATURE_STORE_WATCH_KEY;
+
+                if (StringUtils.hasText(watchKey.getKeyFilter())) {
+                    keyFilter = FEATURE_FLAG_PREFIX + watchKey.getKeyFilter();
+                }
+
+                SettingSelector selector = new SettingSelector().setKeyFilter(keyFilter)
                     .setLabelFilter(watchKey.getLabelFilterText(profiles));
                 List<ConfigurationSetting> currentKeys = client.listSettings(selector);
 
@@ -328,7 +338,7 @@ class AppConfigurationRefreshUtil {
             setFullMessage(String.format(MSG_TEMPLATE, prefix));
             return this;
         }
-        
+
         RefreshEventData setFullMessage(String message) {
             this.message = message;
             this.doRefresh = true;
