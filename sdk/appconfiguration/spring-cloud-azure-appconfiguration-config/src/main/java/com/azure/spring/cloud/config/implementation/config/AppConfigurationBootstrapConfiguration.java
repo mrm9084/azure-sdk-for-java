@@ -60,9 +60,7 @@ public class AppConfigurationBootstrapConfiguration {
      * @throws IllegalArgumentException if both KeyVaultClientProvider and KeyVaultSecretProvider exist.
      */
     @Bean
-    AppConfigurationKeyVaultClientFactory keyVaultClientFactory(AppConfigurationProperties appConfigurationProperties)
-        throws IllegalArgumentException {
-
+    AppConfigurationKeyVaultClientFactory keyVaultClientFactory() throws IllegalArgumentException {
         KeyVaultCredentialProvider keyVaultCredentialProvider = context
             .getBeanProvider(KeyVaultCredentialProvider.class).getIfAvailable();
         SecretClientBuilderSetup keyVaultClientProvider = context.getBeanProvider(SecretClientBuilderSetup.class)
@@ -76,7 +74,7 @@ public class AppConfigurationBootstrapConfiguration {
         }
 
         return new AppConfigurationKeyVaultClientFactory(keyVaultCredentialProvider, keyVaultClientProvider,
-            keyVaultSecretProvider, appConfigurationProperties.getClientId());
+            keyVaultSecretProvider);
     }
 
     /**
@@ -96,14 +94,12 @@ public class AppConfigurationBootstrapConfiguration {
     /**
      * Builder for clients connecting to App Configuration.
      *
-     * @param properties Client configurations for setting up connections to each config store.
      * @param appProperties Library configurations for setting up connections to each config store.
      * @return ClientStore
      */
     @Bean
     @ConditionalOnMissingBean
-    AppConfigurationReplicaClientsBuilder replicaClientBuilder(AppConfigurationProperties properties,
-        AppConfigurationProviderProperties appProperties) {
+    AppConfigurationReplicaClientsBuilder replicaClientBuilder(AppConfigurationProviderProperties appProperties) {
 
         AppConfigurationReplicaClientsBuilder clientBuilder = new AppConfigurationReplicaClientsBuilder(
             appProperties.getMaxRetries());
@@ -113,7 +109,6 @@ public class AppConfigurationBootstrapConfiguration {
         clientBuilder
             .setClientProvider(context.getBeanProvider(ConfigurationClientBuilderSetup.class)
                 .getIfAvailable());
-        clientBuilder.setClientId(properties.getClientId());
 
         KeyVaultCredentialProvider keyVaultCredentialProvider = context
             .getBeanProvider(KeyVaultCredentialProvider.class).getIfAvailable();

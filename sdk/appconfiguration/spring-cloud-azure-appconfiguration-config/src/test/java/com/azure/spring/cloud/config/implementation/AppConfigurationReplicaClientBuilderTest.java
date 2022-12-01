@@ -27,7 +27,6 @@ import org.mockito.MockitoAnnotations;
 
 import com.azure.core.credential.TokenCredential;
 import com.azure.data.appconfiguration.ConfigurationClientBuilder;
-import com.azure.identity.ManagedIdentityCredential;
 import com.azure.spring.cloud.config.AppConfigurationCredentialProvider;
 import com.azure.spring.cloud.config.ConfigurationClientBuilderSetup;
 import com.azure.spring.cloud.config.implementation.properties.ConfigStore;
@@ -103,29 +102,6 @@ public class AppConfigurationReplicaClientBuilderTest {
 
         verify(tokenProviderMock, times(1)).getAppConfigCredential(Mockito.anyString());
         verify(builderMock, times(1)).credential(Mockito.eq(credentialMock));
-    }
-
-    @Test
-    public void buildClientFromEndpointClientIdTest() {
-        clientBuilder = new AppConfigurationReplicaClientsBuilder(0);
-        clientBuilder.setTokenCredentialProvider(tokenProviderMock);
-        clientBuilder.setClientId("1234-5678-9012-3456");
-
-        AppConfigurationReplicaClientsBuilder spy = Mockito.spy(clientBuilder);
-        Mockito.doReturn(builderMock).when(spy).getBuilder();
-
-        ConfigurationClientBuilder builder = new ConfigurationClientBuilder();
-        when(builderMock.endpoint(Mockito.eq(TEST_ENDPOINT))).thenReturn(builder);
-        when(builderMock.addPolicy(Mockito.any())).thenReturn(builderMock);
-
-        AppConfigurationReplicaClient replicaClient = spy.buildClients(configStore).get(0);
-
-        assertNotNull(replicaClient);
-        assertTrue(replicaClient.getBackoffEndTime().isBefore(Instant.now().plusSeconds(1)));
-        assertEquals(TEST_ENDPOINT, replicaClient.getEndpoint());
-        assertEquals(0, replicaClient.getFailedAttempts());
-
-        verify(builderMock, times(1)).credential(Mockito.any(ManagedIdentityCredential.class));
     }
 
     @Test

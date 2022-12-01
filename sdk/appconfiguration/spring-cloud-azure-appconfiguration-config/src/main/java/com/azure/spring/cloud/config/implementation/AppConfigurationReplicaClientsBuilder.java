@@ -59,8 +59,6 @@ public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
 
     private boolean isKeyVaultConfigured = false;
 
-    private String clientId = "";
-
     private final int maxRetries;
 
     public AppConfigurationReplicaClientsBuilder(int maxRetries) {
@@ -90,41 +88,6 @@ public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
     }
 
     /**
-     * @param tokenCredentialProvider the tokenCredentialProvider to set
-     */
-    public void setTokenCredentialProvider(AppConfigurationCredentialProvider tokenCredentialProvider) {
-        this.tokenCredentialProvider = tokenCredentialProvider;
-    }
-
-    /**
-     * @param clientProvider the clientProvider to set
-     */
-    public void setClientProvider(ConfigurationClientBuilderSetup clientProvider) {
-        this.clientProvider = clientProvider;
-    }
-
-    /**
-     * @param isDev the isDev to set
-     */
-    public void setDev(boolean isDev) {
-        this.isDev = isDev;
-    }
-
-    /**
-     * @param isKeyVaultConfigured the isKeyVaultConfigured to set
-     */
-    public void setKeyVaultConfigured(boolean isKeyVaultConfigured) {
-        this.isKeyVaultConfigured = isKeyVaultConfigured;
-    }
-
-    /**
-     * @param clientId the clientId to set
-     */
-    public void setClientId(String clientId) {
-        this.clientId = clientId;
-    }
-
-    /**
      * Builds all the clients for a connection.
      * 
      * @throws IllegalArgumentException when more than 1 connection method is given.
@@ -148,15 +111,10 @@ public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
             tokenCredential = tokenCredentialProvider.getAppConfigCredential(configStore.getEndpoint());
         }
 
-        boolean clientIdIsPresent = StringUtils.hasText(clientId);
         boolean tokenCredentialIsPresent = tokenCredential != null;
         boolean connectionStringIsPresent = configStore.getConnectionString() != null;
 
-        if ((tokenCredentialIsPresent || clientIdIsPresent)
-            && connectionStringIsPresent) {
-            throw new IllegalArgumentException(
-                "More than 1 Connection method was set for connecting to App Configuration.");
-        } else if (tokenCredential != null && clientIdIsPresent) {
+        if (tokenCredentialIsPresent            && connectionStringIsPresent) {
             throw new IllegalArgumentException(
                 "More than 1 Connection method was set for connecting to App Configuration.");
         }
@@ -172,35 +130,21 @@ public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
             }
         } else if (configStore.getEndpoints().size() > 0) {
             for (String endpoint : configStore.getEndpoints()) {
-                clients.add(buildClientEndpoint(tokenCredential, endpoint, builder, clientIdIsPresent,
-                    configStore.getEndpoints().size() - 1));
+                clients.add(buildClientEndpoint(tokenCredential, endpoint, builder,             configStore.getEndpoints().size() - 1));
             }
         } else if (configStore.getEndpoint() != null) {
-            clients.add(buildClientEndpoint(tokenCredential, configStore.getEndpoint(), builder, clientIdIsPresent, 0));
+            clients.add(buildClientEndpoint(tokenCredential, configStore.getEndpoint(), builder,  0));
         }
         return clients;
     }
 
-    /**
-     * @return creates an instance of ConfigurationClientBuilder
-     */
-    ConfigurationClientBuilder getBuilder() {
-        return new ConfigurationClientBuilder();
-    }
-
     private AppConfigurationReplicaClient buildClientEndpoint(TokenCredential tokenCredential,
-        String endpoint, ConfigurationClientBuilder builder, boolean clientIdIsPresent, Integer replicaCount)
+        String endpoint, ConfigurationClientBuilder builder, Integer replicaCount)
         throws IllegalArgumentException {
         if (tokenCredential != null) {
             // User Provided Token Credential
             LOGGER.debug("Connecting to " + endpoint + " using AppConfigurationCredentialProvider.");
             builder.credential(tokenCredential);
-        } else if (clientIdIsPresent) {
-            // User Assigned Identity - Client ID through configuration file.
-            LOGGER.debug("Connecting to " + endpoint + " using Client ID from configuration file.");
-            ManagedIdentityCredentialBuilder micBuilder = new ManagedIdentityCredentialBuilder()
-                .clientId(clientId);
-            builder.credential(micBuilder.build());
         } else {
             // System Assigned Identity. Needs to be checked last as all of the above should
             // have an Endpoint.
@@ -239,6 +183,42 @@ public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
         }
 
         return new AppConfigurationReplicaClient(endpoint, builder.buildClient());
+    }
+
+
+    /**
+     * @return creates an instance of ConfigurationClientBuilder
+     */
+    ConfigurationClientBuilder getBuilder() {
+        return new ConfigurationClientBuilder();
+    }
+
+        /**
+     * @param tokenCredentialProvider the tokenCredentialProvider to set
+     */
+    public void setTokenCredentialProvider(AppConfigurationCredentialProvider tokenCredentialProvider) {
+        this.tokenCredentialProvider = tokenCredentialProvider;
+    }
+
+    /**
+     * @param clientProvider the clientProvider to set
+     */
+    public void setClientProvider(ConfigurationClientBuilderSetup clientProvider) {
+        this.clientProvider = clientProvider;
+    }
+
+    /**
+     * @param isDev the isDev to set
+     */
+    public void setDev(boolean isDev) {
+        this.isDev = isDev;
+    }
+
+    /**
+     * @param isKeyVaultConfigured the isKeyVaultConfigured to set
+     */
+    public void setKeyVaultConfigured(boolean isKeyVaultConfigured) {
+        this.isKeyVaultConfigured = isKeyVaultConfigured;
     }
 
     @Override

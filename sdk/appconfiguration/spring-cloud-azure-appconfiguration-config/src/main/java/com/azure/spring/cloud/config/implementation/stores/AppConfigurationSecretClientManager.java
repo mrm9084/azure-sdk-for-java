@@ -5,8 +5,6 @@ package com.azure.spring.cloud.config.implementation.stores;
 import java.net.URI;
 import java.time.Duration;
 
-import org.springframework.util.StringUtils;
-
 import com.azure.core.credential.TokenCredential;
 import com.azure.identity.ManagedIdentityCredentialBuilder;
 import com.azure.security.keyvault.secrets.SecretAsyncClient;
@@ -31,21 +29,15 @@ public final class AppConfigurationSecretClientManager {
 
     private final KeyVaultSecretProvider keyVaultSecretProvider;
 
-    private Boolean useSecretResolver = false;
-    
-    private String authClientId;
-
     /**
      * Creates a Client for connecting to Key Vault
      * @param endpoint Key Vault endpoint
      * @param tokenCredentialProvider optional provider of the Token Credential for connecting to Key Vault
      * @param keyVaultClientProvider optional provider for overriding the Key Vault Client
      * @param keyVaultSecretProvider optional provider for providing Secrets instead of connecting to Key Vault
-     * @param authClientId clientId used to authenticate with to App Configuration (Optional)
      */
     public AppConfigurationSecretClientManager(String endpoint, KeyVaultCredentialProvider tokenCredentialProvider,
-        SecretClientBuilderSetup keyVaultClientProvider, KeyVaultSecretProvider keyVaultSecretProvider,
-        String authClientId) {
+        SecretClientBuilderSetup keyVaultClientProvider, KeyVaultSecretProvider keyVaultSecretProvider) {
         this.endpoint = endpoint;
         if (tokenCredentialProvider != null) {
             this.tokenCredential = tokenCredentialProvider.getKeyVaultCredential(endpoint);
@@ -54,24 +46,14 @@ public final class AppConfigurationSecretClientManager {
         }
         this.keyVaultClientProvider = keyVaultClientProvider;
         this.keyVaultSecretProvider = keyVaultSecretProvider;
-        this.authClientId = authClientId;
     }
 
     AppConfigurationSecretClientManager build() {
         SecretClientBuilder builder = getBuilder();
-        if (tokenCredential != null && authClientId != null) {
-            throw new IllegalArgumentException("More than 1 Connection method was set for connecting to Key Vault.");
-        }
 
         if (tokenCredential != null) {
             // User Provided Token Credential
             builder.credential(tokenCredential);
-        } else if (StringUtils.hasText(authClientId)) {
-            // User Assigned Identity - Client ID through configuration file.
-            builder.credential(new ManagedIdentityCredentialBuilder().clientId(authClientId).build());
-        } else if (keyVaultSecretProvider != null) { // This is the Secret Resolver
-            // Use this instead.
-            useSecretResolver = true;
         } else {
             // System Assigned Identity.
             builder.credential(new ManagedIdentityCredentialBuilder().build());
@@ -82,9 +64,7 @@ public final class AppConfigurationSecretClientManager {
             keyVaultClientProvider.setup(builder, endpoint);
         }
 
-        if (!useSecretResolver) {
-            secretClient = builder.buildAsyncClient();
-        }
+        secretClient = builder.buildAsyncClient();
 
         return this;
     }
@@ -97,13 +77,17 @@ public final class AppConfigurationSecretClientManager {
      * @return Secret values that matches the secretIdentifier
      */
     public KeyVaultSecret getSecret(URI secretIdentifier, int timeout) {
-        if (secretClient == null && !useSecretResolver) {
-            build();
+        
+        if (tokenCredential != null && keyVaultSecretProvider != null) {
+            throw new IllegalArgumentException("A Key Vault can't have both a token credential and a KeyVaultSecretProvider.");
         }
-
-        if (useSecretResolver) { // Secret Resolver
+        
+        if (secretClient == null && keyVaultSecretProvider == null) {
+            build();
+        } else if (keyVaultSecretProvider != null) {
             return new KeyVaultSecret(null, keyVaultSecretProvider.getSecret(secretIdentifier.getRawPath()));
         }
+        
 
         String[] tokens = secretIdentifier.getPath().split("/");
 

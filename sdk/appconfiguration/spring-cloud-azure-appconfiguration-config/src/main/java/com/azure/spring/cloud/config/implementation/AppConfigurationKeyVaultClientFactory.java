@@ -20,15 +20,11 @@ public class AppConfigurationKeyVaultClientFactory {
 
     private final KeyVaultSecretProvider keyVaultSecretProvider;
 
-    private final String authClientId;
-
     public AppConfigurationKeyVaultClientFactory(KeyVaultCredentialProvider keyVaultCredentialProvider,
-        SecretClientBuilderSetup keyVaultClientProvider, KeyVaultSecretProvider keyVaultSecretProvider,
-        String authClientId) {
+        SecretClientBuilderSetup keyVaultClientProvider, KeyVaultSecretProvider keyVaultSecretProvider) {
         this.keyVaultClientProvider = keyVaultClientProvider;
         this.keyVaultCredentialProvider = keyVaultCredentialProvider;
         this.keyVaultSecretProvider = keyVaultSecretProvider;
-        this.authClientId = authClientId;
         keyVaultClients = new HashMap<>();
     }
 
@@ -37,7 +33,7 @@ public class AppConfigurationKeyVaultClientFactory {
         // one
         if (!keyVaultClients.containsKey(host)) {
             AppConfigurationSecretClientManager client = new AppConfigurationSecretClientManager(host,
-                keyVaultCredentialProvider, keyVaultClientProvider, keyVaultSecretProvider, authClientId);
+                keyVaultCredentialProvider, keyVaultClientProvider, keyVaultSecretProvider);
             keyVaultClients.put(host, client);
         }
         return keyVaultClients.get(host);
