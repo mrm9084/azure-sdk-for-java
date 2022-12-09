@@ -23,6 +23,7 @@ import com.azure.identity.ManagedIdentityCredentialBuilder;
 import com.azure.spring.cloud.config.AppConfigurationCredentialProvider;
 import com.azure.spring.cloud.config.ConfigurationClientBuilderSetup;
 import com.azure.spring.cloud.config.implementation.pipline.policies.BaseAppConfigurationPolicy;
+import com.azure.spring.cloud.config.implementation.pipline.policies.TracingInfo;
 import com.azure.spring.cloud.config.implementation.properties.ConfigStore;
 
 public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
@@ -114,7 +115,7 @@ public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
         boolean tokenCredentialIsPresent = tokenCredential != null;
         boolean connectionStringIsPresent = configStore.getConnectionString() != null;
 
-        if (tokenCredentialIsPresent            && connectionStringIsPresent) {
+        if (tokenCredentialIsPresent && connectionStringIsPresent) {
             throw new IllegalArgumentException(
                 "More than 1 Connection method was set for connecting to App Configuration.");
         }
@@ -130,10 +131,11 @@ public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
             }
         } else if (configStore.getEndpoints().size() > 0) {
             for (String endpoint : configStore.getEndpoints()) {
-                clients.add(buildClientEndpoint(tokenCredential, endpoint, builder,             configStore.getEndpoints().size() - 1));
+                clients.add(
+                    buildClientEndpoint(tokenCredential, endpoint, builder, configStore.getEndpoints().size() - 1));
             }
         } else if (configStore.getEndpoint() != null) {
-            clients.add(buildClientEndpoint(tokenCredential, configStore.getEndpoint(), builder,  0));
+            clients.add(buildClientEndpoint(tokenCredential, configStore.getEndpoint(), builder, 0));
         }
         return clients;
     }
@@ -175,16 +177,17 @@ public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
         ExponentialBackoff retryPolicy = new ExponentialBackoff(maxRetries, DEFAULT_MIN_RETRY_POLICY,
             DEFAULT_MAX_RETRY_POLICY);
 
-        builder.addPolicy(new BaseAppConfigurationPolicy(isDev, isKeyVaultConfigured, replicaCount))
+        TracingInfo tracingInfo = new TracingInfo(isDev, isKeyVaultConfigured, replicaCount);
+
+        builder.addPolicy(new BaseAppConfigurationPolicy(tracingInfo))
             .retryPolicy(new RetryPolicy(retryPolicy));
 
         if (clientProvider != null) {
             clientProvider.setup(builder, endpoint);
         }
 
-        return new AppConfigurationReplicaClient(endpoint, builder.buildClient());
+        return new AppConfigurationReplicaClient(endpoint, builder.buildClient(), tracingInfo);
     }
-
 
     /**
      * @return creates an instance of ConfigurationClientBuilder
@@ -193,7 +196,7 @@ public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
         return new ConfigurationClientBuilder();
     }
 
-        /**
+    /**
      * @param tokenCredentialProvider the tokenCredentialProvider to set
      */
     public void setTokenCredentialProvider(AppConfigurationCredentialProvider tokenCredentialProvider) {

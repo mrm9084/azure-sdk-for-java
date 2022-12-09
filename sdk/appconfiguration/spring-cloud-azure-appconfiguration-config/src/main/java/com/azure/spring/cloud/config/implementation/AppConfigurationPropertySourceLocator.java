@@ -61,7 +61,7 @@ public final class AppConfigurationPropertySourceLocator implements PropertySour
      */
     public AppConfigurationPropertySourceLocator(AppConfigurationProviderProperties appProperties,
         AppConfigurationReplicaClientFactory clientFactory, AppConfigurationKeyVaultClientFactory keyVaultClientFactory,
-        Duration refreshInterval,  List<ConfigStore> configStores) {
+        Duration refreshInterval, List<ConfigStore> configStores) {
         this.refreshInterval = refreshInterval;
         this.appProperties = appProperties;
         this.configStores = configStores;
@@ -261,14 +261,6 @@ public final class AppConfigurationPropertySourceLocator implements PropertySour
         List<AppConfigurationPropertySource> sourceList = new ArrayList<>();
         List<AppConfigurationKeyValueSelector> selects = store.getSelects();
 
-        for (AppConfigurationKeyValueSelector selectedKeys : selects) {
-            AppConfigurationApplicationSettingPropertySource propertySource = new AppConfigurationApplicationSettingPropertySource(
-                store.getEndpoint(), client, keyVaultClientFactory, selectedKeys.getKeyFilter(),
-                selectedKeys.getLabelFilter(profiles), appProperties.getMaxRetryTime());
-            propertySource.initProperties();
-            sourceList.add(propertySource);
-        }
-
         if (store.getFeatureFlags().getEnabled()) {
             for (FeatureFlagKeyValueSelector selectedKeys : store.getFeatureFlags().getSelects()) {
                 AppConfigurationFeatureManagementPropertySource propertySource = new AppConfigurationFeatureManagementPropertySource(
@@ -278,6 +270,14 @@ public final class AppConfigurationPropertySourceLocator implements PropertySour
                 propertySource.initProperties();
                 sourceList.add(propertySource);
             }
+        }
+
+        for (AppConfigurationKeyValueSelector selectedKeys : selects) {
+            AppConfigurationApplicationSettingPropertySource propertySource = new AppConfigurationApplicationSettingPropertySource(
+                store.getEndpoint(), client, keyVaultClientFactory, selectedKeys.getKeyFilter(),
+                selectedKeys.getLabelFilter(profiles), appProperties.getMaxRetryTime());
+            propertySource.initProperties();
+            sourceList.add(propertySource);
         }
 
         return sourceList;
