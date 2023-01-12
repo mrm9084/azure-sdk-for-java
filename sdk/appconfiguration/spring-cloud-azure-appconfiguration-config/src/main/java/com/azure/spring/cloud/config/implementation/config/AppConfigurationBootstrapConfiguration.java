@@ -2,17 +2,22 @@
 // Licensed under the MIT License.
 package com.azure.spring.cloud.config.implementation.config;
 
-import java.util.Optional;
-
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 
+import com.azure.data.appconfiguration.ConfigurationClientBuilder;
+import com.azure.spring.cloud.autoconfigure.context.AzureGlobalProperties;
+import com.azure.spring.cloud.autoconfigure.implementation.appconfiguration.AzureAppConfigurationProperties;
+import com.azure.spring.cloud.autoconfigure.implementation.properties.utils.AzureGlobalPropertiesUtils;
 import com.azure.spring.cloud.config.AppConfigurationCredentialProvider;
 import com.azure.spring.cloud.config.ConfigurationClientCustomizer;
 import com.azure.spring.cloud.config.KeyVaultCredentialProvider;
@@ -20,12 +25,16 @@ import com.azure.spring.cloud.config.KeyVaultSecretProvider;
 import com.azure.spring.cloud.config.SecretClientBuilderSetup;
 import com.azure.spring.cloud.config.implementation.AppConfigurationKeyVaultClientFactory;
 import com.azure.spring.cloud.config.implementation.AppConfigurationPropertySourceLocator;
-import com.azure.spring.cloud.config.implementation.AppConfigurationProviderGlobalProperties;
 import com.azure.spring.cloud.config.implementation.AppConfigurationReplicaClientFactory;
 import com.azure.spring.cloud.config.implementation.AppConfigurationReplicaClientsBuilder;
 import com.azure.spring.cloud.config.implementation.properties.AppConfigurationProperties;
 import com.azure.spring.cloud.config.implementation.properties.AppConfigurationProviderProperties;
-import com.azure.spring.cloud.service.implementation.appconfiguration.ConfigurationClientProperties;
+import com.azure.spring.cloud.core.customizer.AzureServiceClientBuilderCustomizer;
+import com.azure.spring.cloud.core.implementation.util.AzureSpringIdentifier;
+import com.azure.spring.cloud.core.properties.AzureProperties;
+import com.azure.spring.cloud.core.provider.connectionstring.ServiceConnectionStringProvider;
+import com.azure.spring.cloud.core.service.AzureServiceType;
+import com.azure.spring.cloud.service.implementation.appconfiguration.ConfigurationClientBuilderFactory;
 
 /**
  * Setup ConnectionPool, AppConfigurationPropertySourceLocator, and ClientStore when
@@ -99,12 +108,11 @@ public class AppConfigurationBootstrapConfiguration {
     @Bean
     @ConditionalOnMissingBean
     AppConfigurationReplicaClientsBuilder replicaClientBuilder(AppConfigurationProviderProperties appProperties,
-        Optional<ConfigurationClientProperties> configClientProperties,
-        AppConfigurationKeyVaultClientFactory keyVaultClientFactory) {
+        AppConfigurationKeyVaultClientFactory keyVaultClientFactory, ConfigurationClientBuilderFactory clientFactory,
+        Environment env) {
 
         AppConfigurationReplicaClientsBuilder clientBuilder = new AppConfigurationReplicaClientsBuilder(
-            configClientProperties.orElse(new AppConfigurationProviderGlobalProperties()),
-            appProperties.getMaxRetries());
+            appProperties.getMaxRetries(), clientFactory, env);
 
         clientBuilder.setTokenCredentialProvider(
             context.getBeanProvider(AppConfigurationCredentialProvider.class).getIfAvailable());
@@ -115,5 +123,30 @@ public class AppConfigurationBootstrapConfiguration {
         clientBuilder.setIsKeyVaultConfigured(keyVaultClientFactory.isConfigured());
 
         return clientBuilder;
+    }
+    
+    @ConfigurationProperties(prefix = AzureAppConfigurationProperties.PREFIX)
+    @Bean
+    AzureAppConfigurationProperties azureAppConfigurationProperties(AzureGlobalProperties azureProperties) {
+        return loadProperties(azureProperties, new AzureAppConfigurationProperties());
+    }
+    
+    protected <T extends AzureProperties> T loadProperties(AzureGlobalProperties source, T target) {
+        return AzureGlobalPropertiesUtils.loadProperties(source, target);
+    }
+
+    
+    @Bean
+    @ConditionalOnMissingBean
+    ConfigurationClientBuilderFactory configurationClientBuilderFactory(
+        AzureAppConfigurationProperties properties,
+        ObjectProvider<ServiceConnectionStringProvider<AzureServiceType.AppConfiguration>> connectionStringProviders,
+        ObjectProvider<AzureServiceClientBuilderCustomizer<ConfigurationClientBuilder>> customizers) {
+        ConfigurationClientBuilderFactory factory = new ConfigurationClientBuilderFactory(properties);
+
+        factory.setSpringIdentifier(AzureSpringIdentifier.AZURE_SPRING_APP_CONFIG);
+        connectionStringProviders.orderedStream().findFirst().ifPresent(factory::setConnectionStringProvider);
+        customizers.orderedStream().forEach(factory::addBuilderCustomizer);
+        return factory;
     }
 }

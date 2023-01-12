@@ -2,9 +2,8 @@
 // Licensed under the MIT License.
 package com.azure.spring.cloud.config.implementation;
 
-import static com.azure.spring.cloud.core.implementation.converter.AzureHttpLogOptionsConverter.HTTP_LOG_OPTIONS_CONVERTER;
-
 import java.time.Duration;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -19,20 +18,17 @@ import org.springframework.util.StringUtils;
 
 import com.azure.core.credential.TokenCredential;
 import com.azure.core.http.policy.ExponentialBackoff;
-import com.azure.core.http.policy.HttpLogOptions;
 import com.azure.core.http.policy.RetryPolicy;
+import com.azure.core.http.policy.RetryStrategy;
 import com.azure.data.appconfiguration.ConfigurationClientBuilder;
 import com.azure.identity.ManagedIdentityCredentialBuilder;
 import com.azure.spring.cloud.config.AppConfigurationCredentialProvider;
 import com.azure.spring.cloud.config.ConfigurationClientCustomizer;
 import com.azure.spring.cloud.config.implementation.pipline.policies.BaseAppConfigurationPolicy;
 import com.azure.spring.cloud.config.implementation.properties.ConfigStore;
-import com.azure.spring.cloud.core.provider.ClientOptionsProvider;
 import com.azure.spring.cloud.service.implementation.appconfiguration.ConfigurationClientBuilderFactory;
-import com.azure.spring.cloud.service.implementation.appconfiguration.ConfigurationClientProperties;
 
-public class AppConfigurationReplicaClientsBuilder extends ConfigurationClientBuilderFactory
-    implements EnvironmentAware {
+public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AppConfigurationReplicaClientsBuilder.class);
 
@@ -62,16 +58,20 @@ public class AppConfigurationReplicaClientsBuilder extends ConfigurationClientBu
 
     private ConfigurationClientCustomizer clientProvider;
 
+    private final ConfigurationClientBuilderFactory clientFactory;
+
+    private final Environment env;
+
     private boolean isDev = false;
 
     private boolean isKeyVaultConfigured = false;
 
-    private final int maxRetries;
+    private final int defaultMaxRetries;
 
-    public AppConfigurationReplicaClientsBuilder(ConfigurationClientProperties configurationClientProperties,
-        int maxRetries) {
-        super(configurationClientProperties);
-        this.maxRetries = maxRetries;
+    public AppConfigurationReplicaClientsBuilder(int defaultMaxRetries, ConfigurationClientBuilderFactory clientFactory, Environment env) {
+        this.defaultMaxRetries = defaultMaxRetries;
+        this.clientFactory = clientFactory;
+        this.env = env;
     }
 
     /**
@@ -161,12 +161,12 @@ public class AppConfigurationReplicaClientsBuilder extends ConfigurationClientBu
             for (String connectionString : connectionStrings) {
                 String endpoint = getEndpointFromConnectionString(connectionString);
                 LOGGER.debug("Connecting to " + endpoint + " using Connecting String.");
-                ConfigurationClientBuilder builder = this.build().connectionString(connectionString);
+                ConfigurationClientBuilder builder = createBuilderInstance().connectionString(connectionString);
                 clients.add(modifyAndBuildClient(builder, endpoint, connectionStrings.size() - 1));
             }
         } else {
             for (String endpoint : endpoints) {
-                ConfigurationClientBuilder builder = this.build();
+                ConfigurationClientBuilder builder = this.createBuilderInstance();
                 if (tokenCredential != null) {
                     // User Provided Token Credential
                     LOGGER.debug("Connecting to " + endpoint + " using AppConfigurationCredentialProvider.");
@@ -208,27 +208,57 @@ public class AppConfigurationReplicaClientsBuilder extends ConfigurationClientBu
         }
     }
 
-    @Override
     protected ConfigurationClientBuilder createBuilderInstance() {
-        ConfigurationClientBuilder builder = new ConfigurationClientBuilder();
+        RetryStrategy retryStatagy = null;
 
-        ExponentialBackoff retryPolicy = new ExponentialBackoff(maxRetries, DEFAULT_MIN_RETRY_POLICY,
-            DEFAULT_MAX_RETRY_POLICY);
+        String mode = env.getProperty("spring.cloud.azure.retry.mode", "exponential");
 
-        builder.retryPolicy(new RetryPolicy(retryPolicy));
+        if ("exponential".equals(mode)) {
+            String maxRetries = env.getProperty("spring.cloud.azure.retry.exponential.max-retries");
+            int retries = defaultMaxRetries;
 
-        return builder;
-    }
+            if (maxRetries != null) {
+                try {
+                    retries = Integer.valueOf(maxRetries);
+                } catch (NumberFormatException e) {
+                    LOGGER.warn(
+                        "spring.cloud.azure.retry.exponential.max-retries isn't a valid integer, using default value.");
+                }
+            }
 
-    @Override
-    protected void configureHttpLogOptions(ConfigurationClientBuilder builder) {
-        ClientOptionsProvider.ClientOptions client = getAzureProperties().getClient();
+            String baseDelayEnv = env.getProperty("spring.cloud.azure.retry.exponential.base-delay");
+            Duration baseDelay = DEFAULT_MIN_RETRY_POLICY;
 
-        if (client instanceof ClientOptionsProvider.HttpClientOptions) {
-            HttpLogOptions logOptions = HTTP_LOG_OPTIONS_CONVERTER
-                .convert(((ClientOptionsProvider.HttpClientOptions) client).getLogging());
-            consumeHttpLogOptions().accept(builder, logOptions);
+            if (baseDelayEnv != null) {
+                try {
+                    baseDelay = Duration.parse(baseDelayEnv);
+                } catch (DateTimeParseException e) {
+                    LOGGER.warn(
+                        "spring.cloud.azure.retry.exponential.base-delay isn't a valid Duration, using default value.");
+                }
+            }
+
+            String maxDelayEnv = env.getProperty("spring.cloud.azure.retry.exponential.max-delay");
+            Duration maxDelay = DEFAULT_MAX_RETRY_POLICY;
+
+            if (maxDelayEnv != null) {
+                try {
+                    maxDelay = Duration.parse(maxDelayEnv);
+                } catch (DateTimeParseException e) {
+                    LOGGER.warn(
+                        "spring.cloud.azure.retry.exponential.base-delay isn't a valid Duration, using default value.");
+                }
+            }
+
+            retryStatagy = new ExponentialBackoff(retries, baseDelay, maxDelay);
         }
-
+        
+        ConfigurationClientBuilder builder = clientFactory.build();
+        
+        if (retryStatagy != null) {
+            builder.retryPolicy(new RetryPolicy(retryStatagy));
+        }
+        
+        return builder;
     }
 }

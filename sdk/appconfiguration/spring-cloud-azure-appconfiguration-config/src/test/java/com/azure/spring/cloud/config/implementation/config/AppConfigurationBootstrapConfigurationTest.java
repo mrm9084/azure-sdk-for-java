@@ -20,7 +20,7 @@ import com.azure.spring.cloud.config.implementation.AppConfigurationReplicaClien
 public class AppConfigurationBootstrapConfigurationTest {
 
     private static final ApplicationContextRunner CONTEXT_RUNNER = new ApplicationContextRunner()
-        .withConfiguration(AutoConfigurations.of(AppConfigurationBootstrapConfiguration.class));
+        .withConfiguration(AutoConfigurations.of(AppConfigurationBootstrapConfiguration.class)).withPropertyValues(propPair("spring.cloud.azure.appconfiguration.enabled", "true"));
 
     @Test
     public void iniConnectionStringSystemAssigned() {
