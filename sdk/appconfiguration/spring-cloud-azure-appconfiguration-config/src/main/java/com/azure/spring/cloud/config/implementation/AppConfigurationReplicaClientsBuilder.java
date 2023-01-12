@@ -24,7 +24,7 @@ import com.azure.core.http.policy.RetryPolicy;
 import com.azure.data.appconfiguration.ConfigurationClientBuilder;
 import com.azure.identity.ManagedIdentityCredentialBuilder;
 import com.azure.spring.cloud.config.AppConfigurationCredentialProvider;
-import com.azure.spring.cloud.config.ConfigurationClientBuilderSetup;
+import com.azure.spring.cloud.config.ConfigurationClientCustomizer;
 import com.azure.spring.cloud.config.implementation.pipline.policies.BaseAppConfigurationPolicy;
 import com.azure.spring.cloud.config.implementation.properties.ConfigStore;
 import com.azure.spring.cloud.core.provider.ClientOptionsProvider;
@@ -60,7 +60,7 @@ public class AppConfigurationReplicaClientsBuilder extends ConfigurationClientBu
 
     private AppConfigurationCredentialProvider tokenCredentialProvider;
 
-    private ConfigurationClientBuilderSetup clientProvider;
+    private ConfigurationClientCustomizer clientProvider;
 
     private boolean isDev = false;
 
@@ -106,7 +106,7 @@ public class AppConfigurationReplicaClientsBuilder extends ConfigurationClientBu
     /**
      * @param clientProvider the clientProvider to set
      */
-    public void setClientProvider(ConfigurationClientBuilderSetup clientProvider) {
+    public void setClientProvider(ConfigurationClientCustomizer clientProvider) {
         this.clientProvider = clientProvider;
     }
 

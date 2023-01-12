@@ -29,7 +29,7 @@ public class AppConfigurationAutoConfiguration {
      */
     @Configuration
     @ConditionalOnClass(RefreshEndpoint.class)
-    static class AppConfigurationWatchAutoConfiguration {
+    public static class AppConfigurationWatchAutoConfiguration {
 
         @Bean
         @ConditionalOnMissingBean

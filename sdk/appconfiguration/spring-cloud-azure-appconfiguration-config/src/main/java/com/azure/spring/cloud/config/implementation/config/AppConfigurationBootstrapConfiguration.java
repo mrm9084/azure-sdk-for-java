@@ -14,7 +14,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import com.azure.spring.cloud.config.AppConfigurationCredentialProvider;
-import com.azure.spring.cloud.config.ConfigurationClientBuilderSetup;
+import com.azure.spring.cloud.config.ConfigurationClientCustomizer;
 import com.azure.spring.cloud.config.KeyVaultCredentialProvider;
 import com.azure.spring.cloud.config.KeyVaultSecretProvider;
 import com.azure.spring.cloud.config.SecretClientBuilderSetup;
@@ -109,7 +109,7 @@ public class AppConfigurationBootstrapConfiguration {
         clientBuilder.setTokenCredentialProvider(
             context.getBeanProvider(AppConfigurationCredentialProvider.class).getIfAvailable());
         clientBuilder
-            .setClientProvider(context.getBeanProvider(ConfigurationClientBuilderSetup.class)
+            .setClientProvider(context.getBeanProvider(ConfigurationClientCustomizer.class)
                 .getIfAvailable());
 
         clientBuilder.setIsKeyVaultConfigured(keyVaultClientFactory.isConfigured());

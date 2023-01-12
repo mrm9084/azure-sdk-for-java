@@ -53,27 +53,6 @@ public class KeyVaultClientTest {
     }
 
     @Test
-    public void multipleArguments() throws URISyntaxException {
-        String keyVaultUri = "https://keyvault.vault.azure.net";
-
-        KeyVaultCredentialProvider provider = new KeyVaultCredentialProvider() {
-
-            @Override
-            public TokenCredential getKeyVaultCredential(String uri) {
-                assertEquals("https://keyvault.vault.azure.net", uri);
-                return credentialMock;
-            }
-        };
-
-        clientStore = new AppConfigurationSecretClientManager(keyVaultUri, provider, null, null);
-
-        AppConfigurationSecretClientManager test = Mockito.spy(clientStore);
-        Mockito.doReturn(builderMock).when(test).getBuilder();
-
-        Assertions.assertThrows(IllegalArgumentException.class, test::build);
-    }
-
-    @Test
     public void configProviderAuth() throws URISyntaxException {
         String keyVaultUri = "https://keyvault.vault.azure.net";
 

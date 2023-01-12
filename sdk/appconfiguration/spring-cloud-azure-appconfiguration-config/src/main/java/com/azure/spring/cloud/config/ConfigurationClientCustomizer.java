@@ -8,7 +8,7 @@ import com.azure.data.appconfiguration.ConfigurationClientBuilder;
 /**
  * Creates Custom CustomClientBuilder for connecting to Azure App Configuration.
  */
-public interface ConfigurationClientBuilderSetup {
+public interface ConfigurationClientCustomizer {
 
     /**
      * Updates the ConfigurationClientBuilder for connecting to the given App Configuration.

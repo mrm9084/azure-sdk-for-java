@@ -1,16 +1,17 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
-package com.azure.spring.cloud.config.implementation.health;
+package com.azure.spring.cloud.actuator.appconfiguration;
 
 import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.HealthIndicator;
 
 import com.azure.spring.cloud.config.AppConfigurationRefresh;
+import com.azure.spring.cloud.config.implementation.health.AppConfigurationStoreHealth;
 
 /**
  * Indicator class of App Configuration 
  */
-public final class AppConfigurationHealthIndicator implements HealthIndicator {
+public final class AppConfigurationConfigHealthIndicator implements HealthIndicator {
 
     private final AppConfigurationRefresh refresh;
 
@@ -18,7 +19,7 @@ public final class AppConfigurationHealthIndicator implements HealthIndicator {
      * Indicator for the Health endpoint for connections to App Configurations.
      * @param refresh App Configuration store refresher
      */
-    public AppConfigurationHealthIndicator(AppConfigurationRefresh refresh) {
+    public AppConfigurationConfigHealthIndicator(AppConfigurationRefresh refresh) {
         this.refresh = refresh;
     }
 
