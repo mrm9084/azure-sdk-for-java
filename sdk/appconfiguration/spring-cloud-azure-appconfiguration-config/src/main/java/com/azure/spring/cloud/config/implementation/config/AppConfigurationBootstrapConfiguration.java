@@ -93,6 +93,12 @@ public class AppConfigurationBootstrapConfiguration {
         AppConfigurationProperties properties) {
         return new AppConfigurationReplicaClientFactory(clientBuilder, properties.getStores());
     }
+    
+    @Bean
+    @ConditionalOnMissingBean
+    AzureGlobalProperties azureGlobalProperties() {
+        return new AzureGlobalProperties();
+    }
 
     /**
      * Builder for clients connecting to App Configuration.
