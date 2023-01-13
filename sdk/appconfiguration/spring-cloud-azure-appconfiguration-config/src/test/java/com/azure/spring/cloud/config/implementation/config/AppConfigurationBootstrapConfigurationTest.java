@@ -14,13 +14,16 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
+import com.azure.spring.cloud.autoconfigure.context.AzureGlobalPropertiesAutoConfiguration;
 import com.azure.spring.cloud.config.implementation.AppConfigurationPropertySourceLocator;
 import com.azure.spring.cloud.config.implementation.AppConfigurationReplicaClientFactory;
 
 public class AppConfigurationBootstrapConfigurationTest {
 
     private static final ApplicationContextRunner CONTEXT_RUNNER = new ApplicationContextRunner()
-        .withConfiguration(AutoConfigurations.of(AppConfigurationBootstrapConfiguration.class)).withPropertyValues(propPair("spring.cloud.azure.appconfiguration.enabled", "true"));
+        .withConfiguration(AutoConfigurations.of(AppConfigurationBootstrapConfiguration.class,
+            AzureGlobalPropertiesAutoConfiguration.class))
+        .withPropertyValues(propPair("spring.cloud.azure.appconfiguration.enabled", "true"));
 
     @Test
     public void iniConnectionStringSystemAssigned() {
@@ -47,6 +50,7 @@ public class AppConfigurationBootstrapConfigurationTest {
     @Test
     public void clientsBeanCreated() {
         CONTEXT_RUNNER
-            .withPropertyValues(propPair(CONN_STRING_PROP, TEST_CONN_STRING)).run(context -> assertThat(context).hasSingleBean(AppConfigurationReplicaClientFactory.class));
+            .withPropertyValues(propPair(CONN_STRING_PROP, TEST_CONN_STRING))
+            .run(context -> assertThat(context).hasSingleBean(AppConfigurationReplicaClientFactory.class));
     }
 }

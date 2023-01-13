@@ -60,7 +60,7 @@ public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
 
     private final ConfigurationClientBuilderFactory clientFactory;
 
-    private final Environment env;
+    private Environment env;
 
     private boolean isDev = false;
 
@@ -68,10 +68,9 @@ public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
 
     private final int defaultMaxRetries;
 
-    public AppConfigurationReplicaClientsBuilder(int defaultMaxRetries, ConfigurationClientBuilderFactory clientFactory, Environment env) {
+    public AppConfigurationReplicaClientsBuilder(int defaultMaxRetries, ConfigurationClientBuilderFactory clientFactory) {
         this.defaultMaxRetries = defaultMaxRetries;
         this.clientFactory = clientFactory;
-        this.env = env;
     }
 
     /**
@@ -206,6 +205,7 @@ public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
                 break;
             }
         }
+        this.env = environment;
     }
 
     protected ConfigurationClientBuilder createBuilderInstance() {
@@ -219,7 +219,7 @@ public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
 
             if (maxRetries != null) {
                 try {
-                    retries = Integer.valueOf(maxRetries);
+                    retries = Integer.parseInt(maxRetries);
                 } catch (NumberFormatException e) {
                     LOGGER.warn(
                         "spring.cloud.azure.retry.exponential.max-retries isn't a valid integer, using default value.");

@@ -67,12 +67,15 @@ public class AppConfigurationReplicaClientBuilderTest {
         configStore.validateAndInit();
 
         clientBuilder = null;
+        when(envMock.getActiveProfiles()).thenReturn(new String[0]);
+        when(clientFactoryMock.build()).thenReturn(builderMock);
     }
 
     @Test
     public void buildClientFromEndpointTest() {
-        clientBuilder = new AppConfigurationReplicaClientsBuilder(0, clientFactoryMock, envMock);
+        clientBuilder = new AppConfigurationReplicaClientsBuilder(0, clientFactoryMock);
         clientBuilder.setTokenCredentialProvider(tokenProviderMock);
+        clientBuilder.setEnvironment(envMock);
         AppConfigurationReplicaClientsBuilder spy = Mockito.spy(clientBuilder);
 
         ConfigurationClientBuilder builder = new ConfigurationClientBuilder();
@@ -89,11 +92,11 @@ public class AppConfigurationReplicaClientBuilderTest {
 
     @Test
     public void buildClientFromEndpointWithTokenCredentialTest() {
-        clientBuilder = new AppConfigurationReplicaClientsBuilder(0, clientFactoryMock, envMock);
+        clientBuilder = new AppConfigurationReplicaClientsBuilder(0, clientFactoryMock);
         clientBuilder.setTokenCredentialProvider(tokenProviderMock);
+        clientBuilder.setEnvironment(envMock);
 
         AppConfigurationReplicaClientsBuilder spy = Mockito.spy(clientBuilder);
-        Mockito.doReturn(builderMock).when(spy).createBuilderInstance();
 
         ConfigurationClientBuilder builder = new ConfigurationClientBuilder();
         when(builderMock.endpoint(Mockito.eq(TEST_ENDPOINT))).thenReturn(builder);
@@ -117,13 +120,13 @@ public class AppConfigurationReplicaClientBuilderTest {
         configStore.setConnectionString(TEST_CONN_STRING);
         configStore.validateAndInit();
 
-        clientBuilder = new AppConfigurationReplicaClientsBuilder(0, clientFactoryMock, envMock);
+        clientBuilder = new AppConfigurationReplicaClientsBuilder(0, clientFactoryMock);
         clientBuilder.setTokenCredentialProvider(tokenProviderMock);
+        clientBuilder.setEnvironment(envMock);
         AppConfigurationReplicaClientsBuilder spy = Mockito.spy(clientBuilder);
+        
+        when(builderMock.connectionString(Mockito.anyString())).thenReturn(builderMock);
 
-        ConfigurationClientBuilder builder = new ConfigurationClientBuilder();
-        when(builderMock.endpoint(Mockito.eq("test.endpoint"))).thenReturn(builder);
-        when(builderMock.addPolicy(Mockito.any())).thenReturn(builderMock);
 
         List<AppConfigurationReplicaClient> clients = spy.buildClients(configStore);
 
@@ -136,12 +139,12 @@ public class AppConfigurationReplicaClientBuilderTest {
 
     @Test
     public void modifyClientTest() {
-        clientBuilder = new AppConfigurationReplicaClientsBuilder(0, clientFactoryMock, envMock);
+        clientBuilder = new AppConfigurationReplicaClientsBuilder(0, clientFactoryMock);
         clientBuilder.setTokenCredentialProvider(tokenProviderMock);
         clientBuilder.setClientProvider(modifierMock);
+        clientBuilder.setEnvironment(envMock);
 
         AppConfigurationReplicaClientsBuilder spy = Mockito.spy(clientBuilder);
-        Mockito.doReturn(builderMock).when(spy).createBuilderInstance();
 
         ConfigurationClientBuilder builder = new ConfigurationClientBuilder();
         when(builderMock.endpoint(Mockito.eq(TEST_ENDPOINT))).thenReturn(builder);
@@ -169,8 +172,9 @@ public class AppConfigurationReplicaClientBuilderTest {
 
         configStore.validateAndInit();
 
-        clientBuilder = new AppConfigurationReplicaClientsBuilder(0, clientFactoryMock, envMock);
+        clientBuilder = new AppConfigurationReplicaClientsBuilder(0, clientFactoryMock);
         clientBuilder.setTokenCredentialProvider(tokenProviderMock);
+        clientBuilder.setEnvironment(envMock);
 
         AppConfigurationReplicaClientsBuilder spy = Mockito.spy(clientBuilder);
 
@@ -196,8 +200,9 @@ public class AppConfigurationReplicaClientBuilderTest {
 
         configStore.validateAndInit();
 
-        clientBuilder = new AppConfigurationReplicaClientsBuilder(0, clientFactoryMock, envMock);
+        clientBuilder = new AppConfigurationReplicaClientsBuilder(0, clientFactoryMock);
         clientBuilder.setTokenCredentialProvider(tokenProviderMock);
+        clientBuilder.setEnvironment(envMock);
 
         AppConfigurationReplicaClientsBuilder spy = Mockito.spy(clientBuilder);
 
@@ -221,8 +226,9 @@ public class AppConfigurationReplicaClientBuilderTest {
         configStore.setConnectionString(TEST_CONN_STRING);
         configStore.validateAndInit();
 
-        clientBuilder = new AppConfigurationReplicaClientsBuilder(0, clientFactoryMock, envMock);
+        clientBuilder = new AppConfigurationReplicaClientsBuilder(0, clientFactoryMock);
         clientBuilder.setTokenCredentialProvider(tokenProviderMock);
+        clientBuilder.setEnvironment(envMock);
 
         String message = assertThrows(IllegalArgumentException.class,
             () -> clientBuilder.buildClients(configStore).get(0)).getMessage();

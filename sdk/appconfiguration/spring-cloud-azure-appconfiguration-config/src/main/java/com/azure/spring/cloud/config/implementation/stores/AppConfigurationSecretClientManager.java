@@ -23,7 +23,7 @@ import com.azure.spring.cloud.config.SecretClientBuilderSetup;
  */
 public final class AppConfigurationSecretClientManager {
 
-    private final Logger LOGGER = LoggerFactory.getLogger(AppConfigurationSecretClientManager.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(AppConfigurationSecretClientManager.class);
 
     private SecretAsyncClient secretClient;
 
