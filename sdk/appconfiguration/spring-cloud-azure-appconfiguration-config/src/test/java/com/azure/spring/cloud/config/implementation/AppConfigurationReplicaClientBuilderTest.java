@@ -29,7 +29,7 @@ import com.azure.core.credential.TokenCredential;
 import com.azure.data.appconfiguration.ConfigurationClientBuilder;
 import com.azure.data.appconfiguration.ConfigurationServiceVersion;
 import com.azure.spring.cloud.config.AppConfigurationCredentialProvider;
-import com.azure.spring.cloud.config.ConfigurationClientBuilderSetup;
+import com.azure.spring.cloud.config.ConfigurationClientCustomizer;
 import com.azure.spring.cloud.config.implementation.properties.ConfigStore;
 import com.azure.spring.cloud.service.implementation.appconfiguration.ConfigurationClientProperties;
 
@@ -45,7 +45,7 @@ public class AppConfigurationReplicaClientBuilderTest {
     private TokenCredential credentialMock;
 
     @Mock
-    private ConfigurationClientBuilderSetup modifierMock;
+    private ConfigurationClientCustomizer modifierMock;
 
     AppConfigurationReplicaClientsBuilder clientBuilder;
 
