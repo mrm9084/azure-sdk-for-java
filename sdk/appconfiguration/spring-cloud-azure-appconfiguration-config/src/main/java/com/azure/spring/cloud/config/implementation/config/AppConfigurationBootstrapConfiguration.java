@@ -15,6 +15,7 @@ import org.springframework.context.annotation.Configuration;
 import com.azure.data.appconfiguration.ConfigurationClientBuilder;
 import com.azure.spring.cloud.autoconfigure.context.AzureGlobalProperties;
 import com.azure.spring.cloud.autoconfigure.implementation.appconfiguration.AzureAppConfigurationProperties;
+import com.azure.spring.cloud.autoconfigure.implementation.keyvault.secrets.properties.AzureKeyVaultSecretProperties;
 import com.azure.spring.cloud.autoconfigure.implementation.properties.utils.AzureGlobalPropertiesUtils;
 import com.azure.spring.cloud.config.AppConfigurationCredentialProvider;
 import com.azure.spring.cloud.config.ConfigurationClientCustomizer;
@@ -31,6 +32,8 @@ import com.azure.spring.cloud.core.customizer.AzureServiceClientBuilderCustomize
 import com.azure.spring.cloud.core.implementation.util.AzureSpringIdentifier;
 import com.azure.spring.cloud.core.properties.AzureProperties;
 import com.azure.spring.cloud.service.implementation.appconfiguration.ConfigurationClientBuilderFactory;
+import com.azure.spring.cloud.service.implementation.keyvault.secrets.SecretClientBuilderFactory;
+import com.azure.spring.cloud.service.implementation.keyvault.secrets.SecretClientProperties;
 
 /**
  * Setup ConnectionPool, AppConfigurationPropertySourceLocator, and ClientStore when
@@ -68,16 +71,19 @@ public class AppConfigurationBootstrapConfiguration {
      * @throws IllegalArgumentException if both KeyVaultClientProvider and KeyVaultSecretProvider exist.
      */
     @Bean
-    AppConfigurationKeyVaultClientFactory keyVaultClientFactory() throws IllegalArgumentException {
+    AppConfigurationKeyVaultClientFactory keyVaultClientFactory(AzureGlobalProperties azureProperties) throws IllegalArgumentException {
         KeyVaultCredentialProvider keyVaultCredentialProvider = context
             .getBeanProvider(KeyVaultCredentialProvider.class).getIfAvailable();
         SecretClientBuilderSetup keyVaultClientProvider = context.getBeanProvider(SecretClientBuilderSetup.class)
             .getIfAvailable();
         KeyVaultSecretProvider keyVaultSecretProvider = context.getBeanProvider(KeyVaultSecretProvider.class)
             .getIfAvailable();
+        
+        SecretClientProperties secretClientProperties = loadProperties(azureProperties, new AzureKeyVaultSecretProperties());
+        SecretClientBuilderFactory secretClientBuilderFactory = new SecretClientBuilderFactory(secretClientProperties);
 
         return new AppConfigurationKeyVaultClientFactory(keyVaultCredentialProvider, keyVaultClientProvider,
-            keyVaultSecretProvider);
+            keyVaultSecretProvider, secretClientBuilderFactory);
     }
 
     /**

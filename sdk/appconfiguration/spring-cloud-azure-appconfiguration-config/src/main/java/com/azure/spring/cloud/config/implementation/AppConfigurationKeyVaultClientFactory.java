@@ -9,6 +9,7 @@ import com.azure.spring.cloud.config.KeyVaultCredentialProvider;
 import com.azure.spring.cloud.config.KeyVaultSecretProvider;
 import com.azure.spring.cloud.config.SecretClientBuilderSetup;
 import com.azure.spring.cloud.config.implementation.stores.AppConfigurationSecretClientManager;
+import com.azure.spring.cloud.service.implementation.keyvault.secrets.SecretClientBuilderFactory;
 
 public class AppConfigurationKeyVaultClientFactory {
 
@@ -20,13 +21,17 @@ public class AppConfigurationKeyVaultClientFactory {
 
     private final KeyVaultSecretProvider keyVaultSecretProvider;
 
+    private final SecretClientBuilderFactory secretClientFactory;
+
     private final Boolean isConfigured;
 
     public AppConfigurationKeyVaultClientFactory(KeyVaultCredentialProvider keyVaultCredentialProvider,
-        SecretClientBuilderSetup keyVaultClientProvider, KeyVaultSecretProvider keyVaultSecretProvider) {
+        SecretClientBuilderSetup keyVaultClientProvider, KeyVaultSecretProvider keyVaultSecretProvider,
+        SecretClientBuilderFactory secretClientFactory) {
         this.keyVaultClientProvider = keyVaultClientProvider;
         this.keyVaultCredentialProvider = keyVaultCredentialProvider;
         this.keyVaultSecretProvider = keyVaultSecretProvider;
+        this.secretClientFactory = secretClientFactory;
         keyVaultClients = new HashMap<>();
 
         isConfigured = keyVaultClientProvider != null || keyVaultCredentialProvider != null;
@@ -37,7 +42,7 @@ public class AppConfigurationKeyVaultClientFactory {
         // one
         if (!keyVaultClients.containsKey(host)) {
             AppConfigurationSecretClientManager client = new AppConfigurationSecretClientManager(host,
-                keyVaultCredentialProvider, keyVaultClientProvider, keyVaultSecretProvider);
+                keyVaultCredentialProvider, keyVaultClientProvider, keyVaultSecretProvider, secretClientFactory);
             keyVaultClients.put(host, client);
         }
         return keyVaultClients.get(host);

@@ -5,8 +5,6 @@ package com.azure.spring.cloud.config.implementation.stores;
 import java.net.URI;
 import java.time.Duration;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.util.StringUtils;
 
 import com.azure.core.credential.TokenCredential;
@@ -17,13 +15,12 @@ import com.azure.security.keyvault.secrets.models.KeyVaultSecret;
 import com.azure.spring.cloud.config.KeyVaultCredentialProvider;
 import com.azure.spring.cloud.config.KeyVaultSecretProvider;
 import com.azure.spring.cloud.config.SecretClientBuilderSetup;
+import com.azure.spring.cloud.service.implementation.keyvault.secrets.SecretClientBuilderFactory;
 
 /**
  * Client for connecting to and getting secrets from a Key Vault
  */
 public final class AppConfigurationSecretClientManager {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(AppConfigurationSecretClientManager.class);
 
     private SecretAsyncClient secretClient;
 
@@ -35,6 +32,8 @@ public final class AppConfigurationSecretClientManager {
 
     private final KeyVaultSecretProvider keyVaultSecretProvider;
 
+    private final SecretClientBuilderFactory secretClientFactory;
+
     /**
      * Creates a Client for connecting to Key Vault
      * @param endpoint Key Vault endpoint
@@ -44,7 +43,8 @@ public final class AppConfigurationSecretClientManager {
      * @param authClientId clientId used to authenticate with to App Configuration (Optional)
      */
     public AppConfigurationSecretClientManager(String endpoint, KeyVaultCredentialProvider tokenCredentialProvider,
-        SecretClientBuilderSetup keyVaultClientProvider, KeyVaultSecretProvider keyVaultSecretProvider) {
+        SecretClientBuilderSetup keyVaultClientProvider, KeyVaultSecretProvider keyVaultSecretProvider,
+        SecretClientBuilderFactory secretClientFactory) {
         this.endpoint = endpoint;
         if (tokenCredentialProvider != null) {
             this.tokenCredential = tokenCredentialProvider.getKeyVaultCredential(endpoint);
@@ -53,10 +53,11 @@ public final class AppConfigurationSecretClientManager {
         }
         this.keyVaultClientProvider = keyVaultClientProvider;
         this.keyVaultSecretProvider = keyVaultSecretProvider;
+        this.secretClientFactory = secretClientFactory;
     }
 
     AppConfigurationSecretClientManager build() {
-        SecretClientBuilder builder = getBuilder();
+        SecretClientBuilder builder = secretClientFactory.build();
 
         if (tokenCredential != null) {
             // User Provided Token Credential
@@ -87,7 +88,7 @@ public final class AppConfigurationSecretClientManager {
         if (secretClient == null) {
             build();
         }
-        
+
         String[] tokens = secretIdentifier.getPath().split("/");
 
         String name = (tokens.length >= 3 ? tokens[2] : null);
@@ -101,10 +102,6 @@ public final class AppConfigurationSecretClientManager {
         }
 
         return secretClient.getSecret(name, version).block(Duration.ofSeconds(timeout));
-    }
-
-    SecretClientBuilder getBuilder() {
-        return new SecretClientBuilder();
     }
 
 }
