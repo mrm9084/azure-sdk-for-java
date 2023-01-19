@@ -84,7 +84,6 @@ public final class AppConfigurationSecretClientManager {
      * @return Secret values that matches the secretIdentifier
      */
     public KeyVaultSecret getSecret(URI secretIdentifier, int timeout) {
-        LOGGER.error(secretIdentifier.toString() + " - " + secretClient);
         if (secretClient == null) {
             build();
         }

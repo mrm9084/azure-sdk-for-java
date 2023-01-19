@@ -3,7 +3,6 @@
 package com.azure.spring.cloud.config.implementation;
 
 import java.time.Duration;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -214,41 +213,10 @@ public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
         String mode = env.getProperty("spring.cloud.azure.retry.mode", "exponential");
 
         if ("exponential".equals(mode)) {
-            String maxRetries = env.getProperty("spring.cloud.azure.retry.exponential.max-retries");
-            int retries = defaultMaxRetries;
+            int retries = checkPropertyInt("retry.exponential.max-retries", defaultMaxRetries);
 
-            if (maxRetries != null) {
-                try {
-                    retries = Integer.parseInt(maxRetries);
-                } catch (NumberFormatException e) {
-                    LOGGER.warn(
-                        "spring.cloud.azure.retry.exponential.max-retries isn't a valid integer, using default value.");
-                }
-            }
-
-            String baseDelayEnv = env.getProperty("spring.cloud.azure.retry.exponential.base-delay");
-            Duration baseDelay = DEFAULT_MIN_RETRY_POLICY;
-
-            if (baseDelayEnv != null) {
-                try {
-                    baseDelay = Duration.parse(baseDelayEnv);
-                } catch (DateTimeParseException e) {
-                    LOGGER.warn(
-                        "spring.cloud.azure.retry.exponential.base-delay isn't a valid Duration, using default value.");
-                }
-            }
-
-            String maxDelayEnv = env.getProperty("spring.cloud.azure.retry.exponential.max-delay");
-            Duration maxDelay = DEFAULT_MAX_RETRY_POLICY;
-
-            if (maxDelayEnv != null) {
-                try {
-                    maxDelay = Duration.parse(maxDelayEnv);
-                } catch (DateTimeParseException e) {
-                    LOGGER.warn(
-                        "spring.cloud.azure.retry.exponential.base-delay isn't a valid Duration, using default value.");
-                }
-            }
+            Duration baseDelay = checkPropertyDuration("retry.exponential.base-delay", DEFAULT_MIN_RETRY_POLICY);
+            Duration maxDelay = checkPropertyDuration("retry.exponential.max-delay", DEFAULT_MAX_RETRY_POLICY);
 
             retryStatagy = new ExponentialBackoff(retries, baseDelay, maxDelay);
         }
@@ -260,5 +228,47 @@ public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
         }
         
         return builder;
+    }
+    
+    private int checkPropertyInt(String propertyName, int defaultValue) {
+        String envValue = env.getProperty("spring.cloud.azure." + propertyName);
+        String envServiceValue = env.getProperty("spring.cloud.azure.appconfiguration" + propertyName);
+        int value = defaultValue;
+
+        if (envServiceValue != null) {
+            try {
+                value = Integer.parseInt(envServiceValue);
+            } catch (NumberFormatException e) {
+                LOGGER.warn("spring.cloud.azure.appconfiguration.{} isn't a valid integer, using default value.", propertyName);
+            }
+        } else if (envValue != null) {
+            try {
+                value = Integer.parseInt(envValue);
+            } catch (NumberFormatException e) {
+                LOGGER.warn("spring.cloud.azure.{} isn't a valid integer, using default value.", propertyName);
+            }
+        }
+        return value;
+    }
+    
+    private Duration checkPropertyDuration(String propertyName, Duration defaultValue) {
+        String envValue = env.getProperty("spring.cloud.azure." + propertyName);
+        String envServiceValue = env.getProperty("spring.cloud.azure.appconfiguration" + propertyName);
+        Duration value = defaultValue;
+
+        if (envServiceValue != null) {
+            try {
+                value = Duration.parse(envServiceValue);
+            } catch (NumberFormatException e) {
+                LOGGER.warn("spring.cloud.azure.appconfiguration.{} isn't a valid integer, using default value.", propertyName);
+            }
+        } else if (envValue != null) {
+            try {
+                value = Duration.parse(envValue);
+            } catch (NumberFormatException e) {
+                LOGGER.warn("spring.cloud.azure.{} isn't a valid integer, using default value.", propertyName);
+            }
+        }
+        return value;
     }
 }
