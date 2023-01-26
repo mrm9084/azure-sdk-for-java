@@ -10,6 +10,7 @@ import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.convert.DurationStyle;
 import org.springframework.context.EnvironmentAware;
 import org.springframework.core.env.Environment;
 import org.springframework.util.Assert;
@@ -21,6 +22,8 @@ import com.azure.core.http.policy.RetryPolicy;
 import com.azure.core.http.policy.RetryStrategy;
 import com.azure.data.appconfiguration.ConfigurationClientBuilder;
 import com.azure.identity.ManagedIdentityCredentialBuilder;
+import com.azure.spring.cloud.autoconfigure.context.AzureGlobalProperties;
+import com.azure.spring.cloud.autoconfigure.implementation.appconfiguration.AzureAppConfigurationProperties;
 import com.azure.spring.cloud.config.AppConfigurationCredentialProvider;
 import com.azure.spring.cloud.config.ConfigurationClientCustomizer;
 import com.azure.spring.cloud.config.implementation.pipline.policies.BaseAppConfigurationPolicy;
@@ -35,6 +38,14 @@ public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
      * Invalid Connection String error message
      */
     public static final String NON_EMPTY_MSG = "%s property should not be null or empty in the connection string of Azure Config Service.";
+
+    public static final String RETRY_MODE_PROPERTY_NAME = "retry.mode";
+
+    public static final String MAX_RETRIES_PROPERTY_NAME = "retry.exponential.max-retries";
+
+    public static final String BASE_DELAY_PROPERTY_NAME = "retry.exponential.base-delay";
+
+    public static final String MAX_DELAY_PROPERTY_NAME = "retry.exponential.max-delay";
 
     private static final Duration DEFAULT_MIN_RETRY_POLICY = Duration.ofMillis(800);
 
@@ -67,7 +78,8 @@ public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
 
     private final int defaultMaxRetries;
 
-    public AppConfigurationReplicaClientsBuilder(int defaultMaxRetries, ConfigurationClientBuilderFactory clientFactory) {
+    public AppConfigurationReplicaClientsBuilder(int defaultMaxRetries,
+        ConfigurationClientBuilderFactory clientFactory) {
         this.defaultMaxRetries = defaultMaxRetries;
         this.clientFactory = clientFactory;
     }
@@ -210,63 +222,68 @@ public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
     protected ConfigurationClientBuilder createBuilderInstance() {
         RetryStrategy retryStatagy = null;
 
-        String mode = env.getProperty("spring.cloud.azure.retry.mode", "exponential");
+        String mode = env.getProperty(AzureGlobalProperties.PREFIX + "." + RETRY_MODE_PROPERTY_NAME);
+        String modeService = env.getProperty(AzureAppConfigurationProperties.PREFIX + "." + RETRY_MODE_PROPERTY_NAME);
 
-        if ("exponential".equals(mode)) {
-            int retries = checkPropertyInt("retry.exponential.max-retries", defaultMaxRetries);
+        if ("exponential".equals(mode) || "exponential".equals(modeService) || (mode == null && modeService == null)) {
+            int retries = checkPropertyInt(MAX_RETRIES_PROPERTY_NAME, defaultMaxRetries);
 
-            Duration baseDelay = checkPropertyDuration("retry.exponential.base-delay", DEFAULT_MIN_RETRY_POLICY);
-            Duration maxDelay = checkPropertyDuration("retry.exponential.max-delay", DEFAULT_MAX_RETRY_POLICY);
+            Duration baseDelay = checkPropertyDuration(BASE_DELAY_PROPERTY_NAME, DEFAULT_MIN_RETRY_POLICY);
+            Duration maxDelay = checkPropertyDuration(MAX_DELAY_PROPERTY_NAME, DEFAULT_MAX_RETRY_POLICY);
 
             retryStatagy = new ExponentialBackoff(retries, baseDelay, maxDelay);
         }
-        
+
         ConfigurationClientBuilder builder = clientFactory.build();
-        
+
         if (retryStatagy != null) {
             builder.retryPolicy(new RetryPolicy(retryStatagy));
         }
-        
+
         return builder;
     }
-    
+
     private int checkPropertyInt(String propertyName, int defaultValue) {
-        String envValue = env.getProperty("spring.cloud.azure." + propertyName);
-        String envServiceValue = env.getProperty("spring.cloud.azure.appconfiguration" + propertyName);
+        String envValue = env.getProperty(AzureGlobalProperties.PREFIX + "." + propertyName);
+        String envServiceValue = env.getProperty(AzureAppConfigurationProperties.PREFIX + "." + propertyName);
         int value = defaultValue;
 
         if (envServiceValue != null) {
             try {
                 value = Integer.parseInt(envServiceValue);
             } catch (NumberFormatException e) {
-                LOGGER.warn("spring.cloud.azure.appconfiguration.{} isn't a valid integer, using default value.", propertyName);
+                LOGGER.warn("{}.{} isn't a valid integer, using default value.", AzureAppConfigurationProperties.PREFIX,
+                    propertyName);
             }
         } else if (envValue != null) {
             try {
                 value = Integer.parseInt(envValue);
             } catch (NumberFormatException e) {
-                LOGGER.warn("spring.cloud.azure.{} isn't a valid integer, using default value.", propertyName);
+                LOGGER.warn("{}.{} isn't a valid integer, using default value.", AzureGlobalProperties.PREFIX,
+                    propertyName);
             }
         }
         return value;
     }
-    
+
     private Duration checkPropertyDuration(String propertyName, Duration defaultValue) {
-        String envValue = env.getProperty("spring.cloud.azure." + propertyName);
-        String envServiceValue = env.getProperty("spring.cloud.azure.appconfiguration" + propertyName);
+        String envValue = env.getProperty(AzureGlobalProperties.PREFIX + "." + propertyName);
+        String envServiceValue = env.getProperty(AzureAppConfigurationProperties.PREFIX + "." + propertyName);
         Duration value = defaultValue;
 
         if (envServiceValue != null) {
             try {
-                value = Duration.parse(envServiceValue);
-            } catch (NumberFormatException e) {
-                LOGGER.warn("spring.cloud.azure.appconfiguration.{} isn't a valid integer, using default value.", propertyName);
+                value = DurationStyle.detectAndParse(envServiceValue);
+            } catch (IllegalArgumentException e) {
+                LOGGER.warn("{}.{} isn't a valid integer, using default value.", AzureAppConfigurationProperties.PREFIX,
+                    propertyName);
             }
         } else if (envValue != null) {
             try {
-                value = Duration.parse(envValue);
-            } catch (NumberFormatException e) {
-                LOGGER.warn("spring.cloud.azure.{} isn't a valid integer, using default value.", propertyName);
+                value = DurationStyle.detectAndParse(envValue);
+            } catch (IllegalArgumentException e) {
+                LOGGER.warn("{}.{} isn't a valid integer, using default value.", AzureGlobalProperties.PREFIX,
+                    propertyName);
             }
         }
         return value;
