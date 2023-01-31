@@ -5,6 +5,7 @@ package com.azure.spring.cloud.config.implementation;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -226,10 +227,16 @@ public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
         String modeService = env.getProperty(AzureAppConfigurationProperties.PREFIX + "." + RETRY_MODE_PROPERTY_NAME);
 
         if ("exponential".equals(mode) || "exponential".equals(modeService) || (mode == null && modeService == null)) {
-            int retries = checkPropertyInt(MAX_RETRIES_PROPERTY_NAME, defaultMaxRetries);
+            Function<String, Integer> checkPropertyInt = parameter -> (Integer.parseInt(parameter));
+            Function<String, Duration> checkPropertyDuration = parameter -> (DurationStyle.detectAndParse(parameter));
 
-            Duration baseDelay = checkPropertyDuration(BASE_DELAY_PROPERTY_NAME, DEFAULT_MIN_RETRY_POLICY);
-            Duration maxDelay = checkPropertyDuration(MAX_DELAY_PROPERTY_NAME, DEFAULT_MAX_RETRY_POLICY);
+            int retries = checkProperty(MAX_RETRIES_PROPERTY_NAME, defaultMaxRetries,
+                " isn't a valid integer, using default value.", checkPropertyInt);
+
+            Duration baseDelay = checkProperty(BASE_DELAY_PROPERTY_NAME, DEFAULT_MIN_RETRY_POLICY,
+                " isn't a valid Duration, using default value.", checkPropertyDuration);
+            Duration maxDelay = checkProperty(MAX_DELAY_PROPERTY_NAME, DEFAULT_MAX_RETRY_POLICY,
+                " isn't a valid Duration, using default value.", checkPropertyDuration);
 
             retryStatagy = new ExponentialBackoff(retries, baseDelay, maxDelay);
         }
@@ -243,49 +250,25 @@ public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
         return builder;
     }
 
-    private int checkPropertyInt(String propertyName, int defaultValue) {
-        String envValue = env.getProperty(AzureGlobalProperties.PREFIX + "." + propertyName);
-        String envServiceValue = env.getProperty(AzureAppConfigurationProperties.PREFIX + "." + propertyName);
-        int value = defaultValue;
+    private <T> T checkProperty(String propertyName, T defaultValue, String errMsg, Function<String, T> fn) {
+        String envValue = System.getProperty(AzureGlobalProperties.PREFIX + "." + propertyName);
+        String envServiceValue = System.getProperty(AzureAppConfigurationProperties.PREFIX + "." + propertyName);
+        T value = defaultValue;
 
         if (envServiceValue != null) {
             try {
-                value = Integer.parseInt(envServiceValue);
-            } catch (NumberFormatException e) {
-                LOGGER.warn("{}.{} isn't a valid integer, using default value.", AzureAppConfigurationProperties.PREFIX,
-                    propertyName);
+                value = fn.apply(envServiceValue);
+            } catch (Exception e) {
+                LOGGER.warn("{}.{} {}", AzureAppConfigurationProperties.PREFIX, propertyName, errMsg);
             }
         } else if (envValue != null) {
             try {
-                value = Integer.parseInt(envValue);
-            } catch (NumberFormatException e) {
-                LOGGER.warn("{}.{} isn't a valid integer, using default value.", AzureGlobalProperties.PREFIX,
-                    propertyName);
+                value = fn.apply(envValue);
+            } catch (Exception e) {
+                LOGGER.warn("{}.{} {}", AzureGlobalProperties.PREFIX, propertyName, errMsg);
             }
         }
-        return value;
-    }
 
-    private Duration checkPropertyDuration(String propertyName, Duration defaultValue) {
-        String envValue = env.getProperty(AzureGlobalProperties.PREFIX + "." + propertyName);
-        String envServiceValue = env.getProperty(AzureAppConfigurationProperties.PREFIX + "." + propertyName);
-        Duration value = defaultValue;
-
-        if (envServiceValue != null) {
-            try {
-                value = DurationStyle.detectAndParse(envServiceValue);
-            } catch (IllegalArgumentException e) {
-                LOGGER.warn("{}.{} isn't a valid integer, using default value.", AzureAppConfigurationProperties.PREFIX,
-                    propertyName);
-            }
-        } else if (envValue != null) {
-            try {
-                value = DurationStyle.detectAndParse(envValue);
-            } catch (IllegalArgumentException e) {
-                LOGGER.warn("{}.{} isn't a valid integer, using default value.", AzureGlobalProperties.PREFIX,
-                    propertyName);
-            }
-        }
         return value;
     }
 }

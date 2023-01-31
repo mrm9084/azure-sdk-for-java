@@ -23,7 +23,7 @@ public class AppConfigurationKeyVaultClientFactory {
 
     private final SecretClientBuilderFactory secretClientFactory;
 
-    private final Boolean isConfigured;
+    private final boolean isConfigured;
 
     public AppConfigurationKeyVaultClientFactory(KeyVaultCredentialProvider keyVaultCredentialProvider,
         SecretClientBuilderSetup keyVaultClientProvider, KeyVaultSecretProvider keyVaultSecretProvider,
