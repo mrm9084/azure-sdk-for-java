@@ -107,7 +107,7 @@ final class AppConfigurationFeatureManagementPropertySource extends AppConfigura
                     featureConfigurationSettings.add(setting);
                     Object feature = createFeature((FeatureFlagConfigurationSetting) setting);
 
-                    String configName = FEATURE_MANAGEMENT_KEY // TODO This is Wrong/Needs to be updated with Feature Management 4.0
+                    String configName = FEATURE_MANAGEMENT_KEY // TODO (mametcal) This is Wrong/Needs to be updated with Feature Management 4.0
                         + setting.getKey().trim().substring(FEATURE_FLAG_PREFIX.length());
 
                     properties.put(configName, feature);

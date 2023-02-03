@@ -7,7 +7,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.context.ApplicationContext;
@@ -32,6 +31,7 @@ import com.azure.spring.cloud.config.implementation.AppConfigurationReplicaClien
 import com.azure.spring.cloud.config.implementation.properties.AppConfigurationProperties;
 import com.azure.spring.cloud.config.implementation.properties.AppConfigurationProviderProperties;
 import com.azure.spring.cloud.core.customizer.AzureServiceClientBuilderCustomizer;
+import com.azure.spring.cloud.core.implementation.util.AzurePropertiesUtils;
 import com.azure.spring.cloud.core.implementation.util.AzureSpringIdentifier;
 import com.azure.spring.cloud.service.implementation.appconfiguration.ConfigurationClientBuilderFactory;
 import com.azure.spring.cloud.service.implementation.keyvault.secrets.SecretClientBuilderFactory;
@@ -73,8 +73,21 @@ public class AppConfigurationBootstrapConfiguration {
      * @throws IllegalArgumentException if both KeyVaultClientProvider and KeyVaultSecretProvider exist.
      */
     @Bean
-    AppConfigurationKeyVaultClientFactory keyVaultClientFactory(AzureKeyVaultSecretProperties clientProperties)
+    AppConfigurationKeyVaultClientFactory keyVaultClientFactory(Environment environment)
         throws IllegalArgumentException {
+        AzureGlobalProperties globalSource = Binder.get(environment).bindOrCreate(AzureGlobalProperties.PREFIX,
+            AzureGlobalProperties.class);
+        AzureGlobalProperties serviceSource = Binder.get(environment).bindOrCreate(AzureKeyVaultSecretProperties.PREFIX,
+            AzureGlobalProperties.class);
+
+        AzureKeyVaultSecretProperties globalProperties = AzureGlobalPropertiesUtils.loadProperties(
+            globalSource,
+            new AzureKeyVaultSecretProperties());
+        AzureKeyVaultSecretProperties clientProperties = AzureGlobalPropertiesUtils.loadProperties(serviceSource,
+            new AzureKeyVaultSecretProperties());
+
+        AzurePropertiesUtils.copyAzureCommonPropertiesIgnoreNull(globalProperties, clientProperties);
+
         KeyVaultCredentialProvider keyVaultCredentialProvider = context
             .getBeanProvider(KeyVaultCredentialProvider.class).getIfAvailable();
         SecretClientBuilderSetup keyVaultClientProvider = context.getBeanProvider(SecretClientBuilderSetup.class)
@@ -113,9 +126,22 @@ public class AppConfigurationBootstrapConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean
-    AppConfigurationReplicaClientsBuilder replicaClientBuilder(AzureAppConfigurationProperties clientProperties,
+    AppConfigurationReplicaClientsBuilder replicaClientBuilder(Environment environment,
         AppConfigurationProviderProperties appProperties, AppConfigurationKeyVaultClientFactory keyVaultClientFactory,
         ObjectProvider<AzureServiceClientBuilderCustomizer<ConfigurationClientBuilder>> customizers) {
+        AzureGlobalProperties globalSource = Binder.get(environment).bindOrCreate(AzureGlobalProperties.PREFIX,
+            AzureGlobalProperties.class);
+        AzureGlobalProperties serviceSource = Binder.get(environment).bindOrCreate(
+            AzureAppConfigurationProperties.PREFIX,
+            AzureGlobalProperties.class);
+
+        AzureKeyVaultSecretProperties globalProperties = AzureGlobalPropertiesUtils.loadProperties(globalSource,
+            new AzureKeyVaultSecretProperties());
+        AzureAppConfigurationProperties clientProperties = AzureGlobalPropertiesUtils.loadProperties(serviceSource,
+            new AzureAppConfigurationProperties());
+
+        AzurePropertiesUtils.copyAzureCommonPropertiesIgnoreNull(globalProperties, clientProperties);
+
         ConfigurationClientBuilderFactory clientFactory = new ConfigurationClientBuilderFactory(clientProperties);
 
         clientFactory.setSpringIdentifier(AzureSpringIdentifier.AZURE_SPRING_APP_CONFIG);
@@ -133,24 +159,6 @@ public class AppConfigurationBootstrapConfiguration {
         clientBuilder.setIsKeyVaultConfigured(keyVaultClientFactory.isConfigured());
 
         return clientBuilder;
-    }
-
-    @ConfigurationProperties(prefix = AzureAppConfigurationProperties.PREFIX)
-    @Bean
-    @ConditionalOnMissingBean
-    AzureAppConfigurationProperties appConfigProviderClientProperties(Environment environment) {
-        AzureGlobalProperties globalSource = Binder.get(environment).bindOrCreate(AzureGlobalProperties.PREFIX,
-            AzureGlobalProperties.class);
-        return AzureGlobalPropertiesUtils.loadProperties(globalSource, new AzureAppConfigurationProperties());
-    }
-
-    @ConfigurationProperties(prefix = AzureKeyVaultSecretProperties.PREFIX)
-    @Bean
-    @ConditionalOnMissingBean
-    AzureKeyVaultSecretProperties appConfigProviderKeyVaultProperties(Environment environment) {
-        AzureGlobalProperties globalSource = Binder.get(environment).bindOrCreate(AzureGlobalProperties.PREFIX,
-            AzureGlobalProperties.class);
-        return AzureGlobalPropertiesUtils.loadProperties(globalSource, new AzureKeyVaultSecretProperties());
     }
 
 }
