@@ -13,17 +13,18 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
+import org.springframework.util.StringUtils;
 
 import com.azure.data.appconfiguration.ConfigurationClientBuilder;
 import com.azure.spring.cloud.autoconfigure.context.AzureGlobalProperties;
 import com.azure.spring.cloud.autoconfigure.implementation.appconfiguration.AzureAppConfigurationProperties;
 import com.azure.spring.cloud.autoconfigure.implementation.keyvault.secrets.properties.AzureKeyVaultSecretProperties;
+import com.azure.spring.cloud.autoconfigure.implementation.properties.core.AbstractAzureHttpConfigurationProperties;
 import com.azure.spring.cloud.autoconfigure.implementation.properties.utils.AzureGlobalPropertiesUtils;
-import com.azure.spring.cloud.config.AppConfigurationCredentialProvider;
+import com.azure.spring.cloud.autoconfigure.properties.core.authentication.TokenCredentialConfigurationProperties;
 import com.azure.spring.cloud.config.ConfigurationClientCustomizer;
-import com.azure.spring.cloud.config.KeyVaultCredentialProvider;
 import com.azure.spring.cloud.config.KeyVaultSecretProvider;
-import com.azure.spring.cloud.config.SecretClientBuilderSetup;
+import com.azure.spring.cloud.config.SecretClientCustomizer;
 import com.azure.spring.cloud.config.implementation.AppConfigurationKeyVaultClientFactory;
 import com.azure.spring.cloud.config.implementation.AppConfigurationPropertySourceLocator;
 import com.azure.spring.cloud.config.implementation.AppConfigurationReplicaClientFactory;
@@ -88,17 +89,16 @@ public class AppConfigurationBootstrapConfiguration {
 
         AzurePropertiesUtils.copyAzureCommonPropertiesIgnoreNull(globalProperties, clientProperties);
 
-        KeyVaultCredentialProvider keyVaultCredentialProvider = context
-            .getBeanProvider(KeyVaultCredentialProvider.class).getIfAvailable();
-        SecretClientBuilderSetup keyVaultClientProvider = context.getBeanProvider(SecretClientBuilderSetup.class)
+        SecretClientCustomizer keyVaultClientProvider = context.getBeanProvider(SecretClientCustomizer.class)
             .getIfAvailable();
         KeyVaultSecretProvider keyVaultSecretProvider = context.getBeanProvider(KeyVaultSecretProvider.class)
             .getIfAvailable();
 
         SecretClientBuilderFactory secretClientBuilderFactory = new SecretClientBuilderFactory(clientProperties);
+        
+        boolean credentialConfigured = isCredentialConfigured(clientProperties);
 
-        return new AppConfigurationKeyVaultClientFactory(keyVaultCredentialProvider, keyVaultClientProvider,
-            keyVaultSecretProvider, secretClientBuilderFactory);
+        return new AppConfigurationKeyVaultClientFactory(keyVaultClientProvider, keyVaultSecretProvider, secretClientBuilderFactory, credentialConfigured);
     }
 
     /**
@@ -135,8 +135,8 @@ public class AppConfigurationBootstrapConfiguration {
             AzureAppConfigurationProperties.PREFIX,
             AzureGlobalProperties.class);
 
-        AzureKeyVaultSecretProperties globalProperties = AzureGlobalPropertiesUtils.loadProperties(globalSource,
-            new AzureKeyVaultSecretProperties());
+        AzureGlobalProperties globalProperties = AzureGlobalPropertiesUtils.loadProperties(globalSource,
+            new AzureGlobalProperties());
         AzureAppConfigurationProperties clientProperties = AzureGlobalPropertiesUtils.loadProperties(serviceSource,
             new AzureAppConfigurationProperties());
 
@@ -146,12 +146,12 @@ public class AppConfigurationBootstrapConfiguration {
 
         clientFactory.setSpringIdentifier(AzureSpringIdentifier.AZURE_SPRING_APP_CONFIG);
         customizers.orderedStream().forEach(clientFactory::addBuilderCustomizer);
+        
+        boolean credentialConfigured = isCredentialConfigured(clientProperties);
 
         AppConfigurationReplicaClientsBuilder clientBuilder = new AppConfigurationReplicaClientsBuilder(
-            appProperties.getMaxRetries(), clientFactory);
-
-        clientBuilder.setTokenCredentialProvider(
-            context.getBeanProvider(AppConfigurationCredentialProvider.class).getIfAvailable());
+            appProperties.getMaxRetries(), clientFactory, credentialConfigured);
+        
         clientBuilder
             .setClientProvider(context.getBeanProvider(ConfigurationClientCustomizer.class)
                 .getIfAvailable());
@@ -160,5 +160,28 @@ public class AppConfigurationBootstrapConfiguration {
 
         return clientBuilder;
     }
+    
+    private boolean isCredentialConfigured(AbstractAzureHttpConfigurationProperties properties) {
+        if (properties.getCredential() != null) {
+            TokenCredentialConfigurationProperties tokenProps = properties.getCredential();
+            if (StringUtils.hasText(tokenProps.getClientCertificatePassword())) {
+                return true;
+            } else if (StringUtils.hasText(tokenProps.getClientCertificatePath())) {
+                return true;
+            } else if (StringUtils.hasText(tokenProps.getClientId())) {
+                return true;
+            } else if (StringUtils.hasText(tokenProps.getClientSecret())) {
+                return true;
+            } else if (StringUtils.hasText(tokenProps.getUsername())) {
+                return true;
+            } else if (StringUtils.hasText(tokenProps.getPassword())) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    
 
 }

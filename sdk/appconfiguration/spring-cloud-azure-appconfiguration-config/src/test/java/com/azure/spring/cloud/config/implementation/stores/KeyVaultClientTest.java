@@ -20,7 +20,6 @@ import com.azure.core.credential.TokenCredential;
 import com.azure.security.keyvault.secrets.SecretAsyncClient;
 import com.azure.security.keyvault.secrets.SecretClientBuilder;
 import com.azure.security.keyvault.secrets.models.KeyVaultSecret;
-import com.azure.spring.cloud.config.KeyVaultCredentialProvider;
 import com.azure.spring.cloud.config.KeyVaultSecretProvider;
 import com.azure.spring.cloud.service.implementation.keyvault.secrets.SecretClientBuilderFactory;
 
@@ -41,7 +40,7 @@ public class KeyVaultClientTest {
 
     @Mock
     private Mono<KeyVaultSecret> monoSecret;
-    
+
     @Mock
     private SecretClientBuilderFactory secretClientBuilderFactoryMock;
 
@@ -59,16 +58,8 @@ public class KeyVaultClientTest {
     public void configProviderAuth() throws URISyntaxException {
         String keyVaultUri = "https://keyvault.vault.azure.net";
 
-        KeyVaultCredentialProvider provider = new KeyVaultCredentialProvider() {
-
-            @Override
-            public TokenCredential getKeyVaultCredential(String uri) {
-                assertEquals("https://keyvault.vault.azure.net", uri);
-                return credentialMock;
-            }
-        };
-
-        clientStore = new AppConfigurationSecretClientManager(keyVaultUri, provider, null, null, secretClientBuilderFactoryMock);
+        clientStore = new AppConfigurationSecretClientManager(keyVaultUri, null, null, secretClientBuilderFactoryMock,
+            false);
 
         AppConfigurationSecretClientManager test = Mockito.spy(clientStore);
         when(secretClientBuilderFactoryMock.build()).thenReturn(builderMock);
@@ -90,7 +81,8 @@ public class KeyVaultClientTest {
     public void systemAssignedCredentials() throws URISyntaxException {
         String keyVaultUri = "https://keyvault.vault.azure.net/secrets/mySecret";
 
-        clientStore = new AppConfigurationSecretClientManager(keyVaultUri, null, null, null, secretClientBuilderFactoryMock);
+        clientStore = new AppConfigurationSecretClientManager(keyVaultUri, null, null, secretClientBuilderFactoryMock,
+            false);
 
         AppConfigurationSecretClientManager test = Mockito.spy(clientStore);
         when(secretClientBuilderFactoryMock.build()).thenReturn(builderMock);
@@ -112,8 +104,8 @@ public class KeyVaultClientTest {
     public void secretResolverTest() throws URISyntaxException {
         String keyVaultUri = "https://keyvault.vault.azure.net/secrets/mySecret";
 
-        clientStore = new AppConfigurationSecretClientManager(keyVaultUri, null, null,
-            new TestSecretResolver(), secretClientBuilderFactoryMock);
+        clientStore = new AppConfigurationSecretClientManager(keyVaultUri, null, new TestSecretResolver(),
+            secretClientBuilderFactoryMock, false);
 
         AppConfigurationSecretClientManager test = Mockito.spy(clientStore);
         when(secretClientBuilderFactoryMock.build()).thenReturn(builderMock);

@@ -7,14 +7,12 @@ import java.time.Duration;
 
 import org.springframework.util.StringUtils;
 
-import com.azure.core.credential.TokenCredential;
 import com.azure.identity.ManagedIdentityCredentialBuilder;
 import com.azure.security.keyvault.secrets.SecretAsyncClient;
 import com.azure.security.keyvault.secrets.SecretClientBuilder;
 import com.azure.security.keyvault.secrets.models.KeyVaultSecret;
-import com.azure.spring.cloud.config.KeyVaultCredentialProvider;
 import com.azure.spring.cloud.config.KeyVaultSecretProvider;
-import com.azure.spring.cloud.config.SecretClientBuilderSetup;
+import com.azure.spring.cloud.config.SecretClientCustomizer;
 import com.azure.spring.cloud.service.implementation.keyvault.secrets.SecretClientBuilderFactory;
 
 /**
@@ -24,15 +22,15 @@ public final class AppConfigurationSecretClientManager {
 
     private SecretAsyncClient secretClient;
 
-    private final SecretClientBuilderSetup keyVaultClientProvider;
+    private final SecretClientCustomizer keyVaultClientProvider;
 
     private final String endpoint;
-
-    private final TokenCredential tokenCredential;
 
     private final KeyVaultSecretProvider keyVaultSecretProvider;
 
     private final SecretClientBuilderFactory secretClientFactory;
+    
+    private final boolean credentialConfigured;
 
     /**
      * Creates a Client for connecting to Key Vault
@@ -42,27 +40,19 @@ public final class AppConfigurationSecretClientManager {
      * @param keyVaultSecretProvider optional provider for providing Secrets instead of connecting to Key Vault
      * @param authClientId clientId used to authenticate with to App Configuration (Optional)
      */
-    public AppConfigurationSecretClientManager(String endpoint, KeyVaultCredentialProvider tokenCredentialProvider,
-        SecretClientBuilderSetup keyVaultClientProvider, KeyVaultSecretProvider keyVaultSecretProvider,
-        SecretClientBuilderFactory secretClientFactory) {
+    public AppConfigurationSecretClientManager(String endpoint, SecretClientCustomizer keyVaultClientProvider,
+        KeyVaultSecretProvider keyVaultSecretProvider, SecretClientBuilderFactory secretClientFactory, boolean credentialConfigured) {
         this.endpoint = endpoint;
-        if (tokenCredentialProvider != null) {
-            this.tokenCredential = tokenCredentialProvider.getKeyVaultCredential(endpoint);
-        } else {
-            this.tokenCredential = null;
-        }
         this.keyVaultClientProvider = keyVaultClientProvider;
         this.keyVaultSecretProvider = keyVaultSecretProvider;
         this.secretClientFactory = secretClientFactory;
+        this.credentialConfigured = credentialConfigured;
     }
 
     AppConfigurationSecretClientManager build() {
         SecretClientBuilder builder = secretClientFactory.build();
 
-        if (tokenCredential != null) {
-            // User Provided Token Credential
-            builder.credential(tokenCredential);
-        } else {
+        if (credentialConfigured) {
             // System Assigned Identity.
             builder.credential(new ManagedIdentityCredentialBuilder().build());
         }

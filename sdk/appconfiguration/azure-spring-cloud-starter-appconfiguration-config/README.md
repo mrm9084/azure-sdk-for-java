@@ -261,30 +261,6 @@ spring.cloud.azure.appconfiguration.stores[0].endpoint=[config-store-endpoint]
 spring.cloud.azure.appconfiguration.managed-identity.client-id=[client-id]
 ```
 
-#### Token Credential Provider
-
-Another method of authentication is using AppConfigCredentialProvider and/or KeyVaultCredentialProvider. By implementing either of these classes and providing and generating a @Bean of them will enable authentication through any method defined by the [Java Azure SDK][azure_identity_sdk]. The uri value is the endpoint/dns name of the connection service, so if needed different credentials can be used per config store/key vault.
-
-```java
-public class MyCredentials implements AppConfigCredentialProvider, KeyVaultCredentialProvider {
-
-    @Override
-    public TokenCredential getAppConfigCredential(String uri) {
-            return buildCredential();
-    }
-
-    @Override
-    public TokenCredential getKeyVaultCredential(String uri) {
-            return buildCredential();
-    }
-
-    TokenCredential buildCredential() {
-            return new DefaultAzureCredentialBuilder().build();
-    }
-
-}
-```
-
 #### Client Builder Customization
 
 The service client builders used for connecting to App Configuration and Key Vault can be customized by implementing interfaces `ConfigurationClientBuilderSetup` and `SecretClientBuilderSetup` respectively. Generating and providing a `@Bean` of them will update the default service client builders used in [App Configuration SDK][app_configuration_SDK] and [Key Vault SDK][key_vault_SDK]. If necessary, the customization can be done per App Configuration store or Key Vault instance.

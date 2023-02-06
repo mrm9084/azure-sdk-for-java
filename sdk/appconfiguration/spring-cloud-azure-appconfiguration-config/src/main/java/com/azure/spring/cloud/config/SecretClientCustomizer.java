@@ -7,7 +7,7 @@ import com.azure.security.keyvault.secrets.SecretClientBuilder;
 /**
  * Creates Custom SecretClientBuilder for connecting to Key Vault.
  */
-public interface SecretClientBuilderSetup {
+public interface SecretClientCustomizer {
 
     /**
      * Updates the SecretClientBuilder for connecting to the given endpoint.

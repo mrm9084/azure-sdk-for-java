@@ -17,7 +17,6 @@ import org.springframework.core.env.Environment;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
 
-import com.azure.core.credential.TokenCredential;
 import com.azure.core.http.policy.ExponentialBackoff;
 import com.azure.core.http.policy.RetryPolicy;
 import com.azure.core.http.policy.RetryStrategy;
@@ -25,7 +24,6 @@ import com.azure.data.appconfiguration.ConfigurationClientBuilder;
 import com.azure.identity.ManagedIdentityCredentialBuilder;
 import com.azure.spring.cloud.autoconfigure.context.AzureGlobalProperties;
 import com.azure.spring.cloud.autoconfigure.implementation.appconfiguration.AzureAppConfigurationProperties;
-import com.azure.spring.cloud.config.AppConfigurationCredentialProvider;
 import com.azure.spring.cloud.config.ConfigurationClientCustomizer;
 import com.azure.spring.cloud.config.implementation.pipline.policies.BaseAppConfigurationPolicy;
 import com.azure.spring.cloud.config.implementation.properties.ConfigStore;
@@ -65,8 +63,6 @@ public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
 
     private static final Pattern CONN_STRING_PATTERN = Pattern.compile(CONN_STRING_REGEXP);
 
-    private AppConfigurationCredentialProvider tokenCredentialProvider;
-
     private ConfigurationClientCustomizer clientProvider;
 
     private final ConfigurationClientBuilderFactory clientFactory;
@@ -76,13 +72,16 @@ public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
     private boolean isDev = false;
 
     private boolean isKeyVaultConfigured = false;
+    
+    private final boolean credentialConfigured;
 
     private final int defaultMaxRetries;
 
     public AppConfigurationReplicaClientsBuilder(int defaultMaxRetries,
-        ConfigurationClientBuilderFactory clientFactory) {
+        ConfigurationClientBuilderFactory clientFactory, boolean credentialConfigured) {
         this.defaultMaxRetries = defaultMaxRetries;
         this.clientFactory = clientFactory;
+        this.credentialConfigured = credentialConfigured;
     }
 
     /**
@@ -105,13 +104,6 @@ public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
         Assert.hasText(endpoint, String.format(NON_EMPTY_MSG, "Endpoint"));
 
         return endpoint;
-    }
-
-    /**
-     * @param tokenCredentialProvider the tokenCredentialProvider to set
-     */
-    public void setTokenCredentialProvider(AppConfigurationCredentialProvider tokenCredentialProvider) {
-        this.tokenCredentialProvider = tokenCredentialProvider;
     }
 
     /**
@@ -142,17 +134,10 @@ public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
             throw new IllegalArgumentException(
                 "More than 1 Connection method was set for connecting to App Configuration.");
         }
-
-        TokenCredential tokenCredential = null;
-
-        if (tokenCredentialProvider != null) {
-            tokenCredential = tokenCredentialProvider.getAppConfigCredential(configStore.getEndpoint());
-        }
-
-        boolean tokenCredentialIsPresent = tokenCredential != null;
+        
         boolean connectionStringIsPresent = configStore.getConnectionString() != null;
 
-        if (tokenCredentialIsPresent && connectionStringIsPresent) {
+        if (credentialConfigured && connectionStringIsPresent) {
             throw new IllegalArgumentException(
                 "More than 1 Connection method was set for connecting to App Configuration.");
         }
@@ -178,11 +163,7 @@ public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
         } else {
             for (String endpoint : endpoints) {
                 ConfigurationClientBuilder builder = this.createBuilderInstance();
-                if (tokenCredential != null) {
-                    // User Provided Token Credential
-                    LOGGER.debug("Connecting to " + endpoint + " using AppConfigurationCredentialProvider.");
-                    builder.credential(tokenCredential);
-                } else {
+                if (!credentialConfigured) {
                     // System Assigned Identity. Needs to be checked last as all of the above should
                     // have an Endpoint.
                     LOGGER.debug("Connecting to " + endpoint
