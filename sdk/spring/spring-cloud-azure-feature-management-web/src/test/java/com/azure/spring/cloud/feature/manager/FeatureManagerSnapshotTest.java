@@ -19,6 +19,7 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
 import com.azure.spring.cloud.feature.management.FeatureManager;
+import com.azure.spring.cloud.feature.management.web.FeatureManagerSnapshot;
 
 import jakarta.servlet.http.HttpServletRequest;
 import reactor.core.publisher.Mono;

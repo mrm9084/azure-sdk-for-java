@@ -27,6 +27,10 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.web.method.HandlerMethod;
 
 import com.azure.spring.cloud.feature.management.FeatureManager;
+import com.azure.spring.cloud.feature.management.web.DisabledFeaturesHandler;
+import com.azure.spring.cloud.feature.management.web.FeatureGate;
+import com.azure.spring.cloud.feature.management.web.FeatureHandler;
+import com.azure.spring.cloud.feature.management.web.FeatureManagerSnapshot;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
