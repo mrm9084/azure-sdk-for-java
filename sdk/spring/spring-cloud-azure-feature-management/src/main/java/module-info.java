@@ -5,11 +5,11 @@ module com.azure.spring.cloud.feature.management {
 
     exports com.azure.spring.cloud.feature.management;
 
-    exports com.azure.spring.cloud.feature.management.implementation;
-
     exports com.azure.spring.cloud.feature.management.filters;
-    
+
     exports com.azure.spring.cloud.feature.management.implementation.targeting to com.fasterxml.jackson.databind;
+
+    exports com.azure.spring.cloud.feature.management.implementation to spring.beans, spring.context;
 
     requires com.fasterxml.jackson.annotation;
 
@@ -30,6 +30,8 @@ module com.azure.spring.cloud.feature.management {
     requires spring.context;
 
     requires spring.core;
-    
+
     opens com.azure.spring.cloud.feature.management to spring.core;
+
+    opens com.azure.spring.cloud.feature.management.implementation to spring.core;
 }

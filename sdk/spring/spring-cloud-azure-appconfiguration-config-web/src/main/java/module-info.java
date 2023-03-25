@@ -3,29 +3,50 @@
 
 module com.azure.spring.cloud.appconfiguration.config.web {
     exports com.azure.spring.cloud.appconfiguration.config.web.implementation.pushbusrefresh;
+
     exports com.azure.spring.cloud.appconfiguration.config.web.implementation.pullrefresh;
+
     exports com.azure.spring.cloud.appconfiguration.config.web.implementation;
+
     exports com.azure.spring.cloud.appconfiguration.config.web.implementation.pushrefresh;
 
     requires com.azure.data.appconfiguration;
-    requires com.azure.spring.cloud.appconfiguration.config;
+
+    requires transitive com.azure.spring.cloud.appconfiguration.config;
+
     requires com.azure.spring.cloud.autoconfigure;
+
     requires com.fasterxml.jackson.core;
+
     requires com.fasterxml.jackson.databind;
-    requires org.apache.tomcat.embed.core;
+
+    requires transitive org.apache.tomcat.embed.core;
+
     requires org.reactivestreams;
+
     requires org.slf4j;
+
     requires reactor.core;
+
     requires spring.beans;
+
     requires spring.boot;
+
     requires spring.boot.actuator;
+
     requires spring.boot.actuator.autoconfigure;
+
     requires spring.boot.autoconfigure;
+
     requires spring.cloud.bus;
+
     requires spring.cloud.context;
+
     requires spring.context;
+
     requires spring.core;
+
     requires spring.web;
-    
+
     opens com.azure.spring.cloud.appconfiguration.config.web.implementation to spring.core;
 }
