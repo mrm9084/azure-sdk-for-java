@@ -46,7 +46,7 @@ module com.azure.spring.cloud.appconfiguration.config.web {
 
     requires spring.core;
 
-    requires spring.web;
+    requires transitive spring.web;
 
     opens com.azure.spring.cloud.appconfiguration.config.web.implementation to spring.core;
 }

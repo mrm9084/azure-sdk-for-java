@@ -1,6 +1,6 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
-package com.azure.spring.cloud.feature.manager;
+package com.azure.spring.cloud.feature.management.web;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -27,10 +27,6 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.web.method.HandlerMethod;
 
 import com.azure.spring.cloud.feature.management.FeatureManager;
-import com.azure.spring.cloud.feature.management.web.DisabledFeaturesHandler;
-import com.azure.spring.cloud.feature.management.web.FeatureGate;
-import com.azure.spring.cloud.feature.management.web.FeatureHandler;
-import com.azure.spring.cloud.feature.management.web.FeatureManagerSnapshot;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -64,12 +60,11 @@ public class FeatureHandlerTest {
 
     @Mock
     FeatureHandler featureHandler2;
-    
+
     @BeforeEach
     public void setup(TestInfo testInfo) {
         MockitoAnnotations.openMocks(this);
     }
-
 
     @Test
     public void preHandleNotHandler() {
@@ -133,7 +128,7 @@ public class FeatureHandlerTest {
         doThrow(ioException).when(response).sendRedirect("/redirected");
 
         UndeclaredThrowableException ex = assertThrows(UndeclaredThrowableException.class,
-                () -> featureHandler.preHandle(request, response, handlerMethod));
+            () -> featureHandler.preHandle(request, response, handlerMethod));
 
         assertSame(ioException, ex.getCause());
     }
