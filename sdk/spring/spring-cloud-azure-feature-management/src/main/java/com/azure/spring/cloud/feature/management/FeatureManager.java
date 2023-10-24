@@ -3,6 +3,7 @@
 package com.azure.spring.cloud.feature.management;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -17,6 +18,8 @@ import org.springframework.util.ReflectionUtils;
 import com.azure.spring.cloud.feature.management.filters.FeatureFilter;
 import com.azure.spring.cloud.feature.management.implementation.FeatureManagementConfigProperties;
 import com.azure.spring.cloud.feature.management.implementation.FeatureManagementProperties;
+import com.azure.spring.cloud.feature.management.implementation.TelemetryPublisher;
+import com.azure.spring.cloud.feature.management.implementation.models.EvaluationEvent;
 import com.azure.spring.cloud.feature.management.implementation.models.Feature;
 import com.azure.spring.cloud.feature.management.models.FeatureFilterEvaluationContext;
 import com.azure.spring.cloud.feature.management.models.FilterNotFoundException;
@@ -36,6 +39,8 @@ public class FeatureManager {
 
     private transient FeatureManagementConfigProperties properties;
 
+    private final List<TelemetryPublisher> telemetryPublishers;
+
     /**
      * Can be called to check if a feature is enabled or disabled.
      * 
@@ -44,10 +49,11 @@ public class FeatureManager {
      * @param properties FeatureManagementConfigProperties
      */
     FeatureManager(ApplicationContext context, FeatureManagementProperties featureManagementConfigurations,
-        FeatureManagementConfigProperties properties) {
+        FeatureManagementConfigProperties properties, List<TelemetryPublisher> telemetryPublishers) {
         this.context = context;
         this.featureManagementConfigurations = featureManagementConfigurations;
         this.properties = properties;
+        this.telemetryPublishers = telemetryPublishers;
     }
 
     /**
@@ -97,13 +103,21 @@ public class FeatureManager {
         Stream<FeatureFilterEvaluationContext> filters = featureItem.getEnabledFor().values().stream()
             .filter(Objects::nonNull).filter(featureFilter -> featureFilter.getName() != null);
 
+        boolean result = false;
+
         // All Filters must be true
         if (featureItem.getRequirementType().equals("All")) {
-            return filters.allMatch(featureFilter -> isFeatureOn(featureFilter, feature));
+            result = filters.allMatch(featureFilter -> isFeatureOn(featureFilter, feature));
+        } else {
+            // Any Filter must be true
+            result = filters.anyMatch(featureFilter -> isFeatureOn(featureFilter, feature));
+        }
+        
+        if (featureItem.getTelemetryEnabled()) {
+            publishTelemetry(new EvaluationEvent(featureItem, result));
         }
 
-        // Any Filter must be true
-        return filters.anyMatch(featureFilter -> isFeatureOn(featureFilter, feature));
+        return result;
     }
 
     private boolean isFeatureOn(FeatureFilterEvaluationContext filter, String feature) {
@@ -121,6 +135,16 @@ public class FeatureManager {
             }
         }
         return false;
+    }
+
+    private void publishTelemetry(EvaluationEvent evaluationEvent) {
+        if (this.telemetryPublishers == null || this.telemetryPublishers.size() == 0) {
+            LOGGER.warn("The feature enabled telemetry but no telemetry publisher was registered.");
+        } else {
+            for (TelemetryPublisher telemetryPublisher: this.telemetryPublishers) {
+                telemetryPublisher.publishEvent(evaluationEvent);
+            }
+        }
     }
 
     /**

@@ -29,6 +29,10 @@ public class Feature {
     @JsonProperty("enabled-for")
     private Map<Integer, FeatureFilterEvaluationContext> enabledFor;
 
+    private Boolean telemetryEnabled = false;
+
+    private Map<String, String> telemetryMetadata = new HashMap<>();
+
     /**
      * @return the key
      */
@@ -67,7 +71,7 @@ public class Feature {
     /**
      * @param enabledFor the enabledFor to set
      */
-    public void setEnabledFor(HashMap<Integer, FeatureFilterEvaluationContext> enabledFor) {
+    public void setEnabledFor(Map<Integer, FeatureFilterEvaluationContext> enabledFor) {
         this.enabledFor = enabledFor;
     }
 
@@ -83,6 +87,34 @@ public class Feature {
      */
     public void setRequirementType(String requirementType) {
         this.requirementType = requirementType;
+    }
+
+    /**
+     * @return the telemetryEnabled
+     */
+    public Boolean getTelemetryEnabled() {
+        return telemetryEnabled;
+    }
+
+    /**
+     * @param telemetryEnabled the telemetryEnabled to set
+     */
+    public void setTelemetryEnabled(Boolean telemetryEnabled) {
+        this.telemetryEnabled = telemetryEnabled;
+    }
+
+    /**
+     * @return the telemetryMetadata
+     */
+    public Map<String, String> getTelemetryMetadata() {
+        return telemetryMetadata;
+    }
+
+    /**
+     * @param telemetryMetadata the telemetryMetadata to set
+     */
+    public void setTelemetryMetadata(Map<String, String> telemetryMetadata) {
+        this.telemetryMetadata = telemetryMetadata;
     }
 
 }
