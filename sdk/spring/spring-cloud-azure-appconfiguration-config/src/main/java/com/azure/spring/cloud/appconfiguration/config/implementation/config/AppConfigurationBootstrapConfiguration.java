@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 package com.azure.spring.cloud.appconfiguration.config.implementation.config;
 
+import javax.naming.NamingException;
+
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -63,7 +65,8 @@ public class AppConfigurationBootstrapConfiguration {
     }
 
     @Bean
-    AppConfigurationKeyVaultClientFactory appConfigurationKeyVaultClientFactory(Environment environment, AppConfigurationProviderProperties appProperties)
+    AppConfigurationKeyVaultClientFactory appConfigurationKeyVaultClientFactory(Environment environment,
+        AppConfigurationProviderProperties appProperties)
         throws IllegalArgumentException {
         AzureGlobalProperties globalSource = Binder.get(environment).bindOrCreate(AzureGlobalProperties.PREFIX,
             AzureGlobalProperties.class);
@@ -113,12 +116,14 @@ public class AppConfigurationBootstrapConfiguration {
      * @param keyVaultClientFactory used for tracing info for if key vault has been configured
      * @param customizers Client Customizers for connecting to Azure App Configuration
      * @return ClientStore
+     * @throws NamingException
      */
     @Bean
     @ConditionalOnMissingBean
     AppConfigurationReplicaClientsBuilder replicaClientBuilder(Environment environment,
         AppConfigurationProviderProperties appProperties, AppConfigurationKeyVaultClientFactory keyVaultClientFactory,
-        ObjectProvider<AzureServiceClientBuilderCustomizer<ConfigurationClientBuilder>> customizers) {
+        ObjectProvider<AzureServiceClientBuilderCustomizer<ConfigurationClientBuilder>> customizers)
+        throws NamingException {
         AzureGlobalProperties globalSource = Binder.get(environment).bindOrCreate(AzureGlobalProperties.PREFIX,
             AzureGlobalProperties.class);
         AzureGlobalProperties serviceSource = Binder.get(environment).bindOrCreate(

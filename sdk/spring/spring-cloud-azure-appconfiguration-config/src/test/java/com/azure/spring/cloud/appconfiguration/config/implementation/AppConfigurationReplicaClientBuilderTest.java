@@ -18,6 +18,8 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.naming.NamingException;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -68,7 +70,7 @@ public class AppConfigurationReplicaClientBuilderTest {
     }
 
     @Test
-    public void buildClientFromEndpointTest() {
+    public void buildClientFromEndpointTest() throws NamingException {
         clientBuilder = new AppConfigurationReplicaClientsBuilder(0, clientFactoryMock, false);
         clientBuilder.setEnvironment(envMock);
         AppConfigurationReplicaClientsBuilder spy = Mockito.spy(clientBuilder);
@@ -86,7 +88,7 @@ public class AppConfigurationReplicaClientBuilderTest {
     }
 
     @Test
-    public void buildClientFromConnectionStringTest() {
+    public void buildClientFromConnectionStringTest() throws NamingException {
         configStore.setEndpoint(null);
         configStore.setConnectionString(TEST_CONN_STRING);
         configStore.validateAndInit();
@@ -108,7 +110,7 @@ public class AppConfigurationReplicaClientBuilderTest {
     }
 
     @Test
-    public void modifyClientTest() {
+    public void modifyClientTest() throws NamingException {
         clientBuilder = new AppConfigurationReplicaClientsBuilder(0, clientFactoryMock, false);
         clientBuilder.setClientProvider(modifierMock);
         clientBuilder.setEnvironment(envMock);
@@ -130,7 +132,7 @@ public class AppConfigurationReplicaClientBuilderTest {
     }
 
     @Test
-    public void buildClientsFromMultipleEndpointsTest() {
+    public void buildClientsFromMultipleEndpointsTest() throws NamingException {
         configStore = new ConfigStore();
         List<String> endpoints = new ArrayList<>();
 
@@ -157,7 +159,7 @@ public class AppConfigurationReplicaClientBuilderTest {
 
     @Test
     @Disabled // Waiting on Server Side Support for connection strings
-    public void buildClientsFromMultipleConnectionStringsTest() {
+    public void buildClientsFromMultipleConnectionStringsTest() throws NamingException {
         configStore = new ConfigStore();
         List<String> connectionStrings = new ArrayList<>();
 
@@ -183,7 +185,7 @@ public class AppConfigurationReplicaClientBuilderTest {
     }
 
     @Test
-    public void endpointAndConnectionString() {
+    public void endpointAndConnectionString() throws NamingException {
         List<String> endpoints = new ArrayList<>();
 
         endpoints.add(TEST_ENDPOINT);
