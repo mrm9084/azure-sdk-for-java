@@ -18,6 +18,7 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.context.ApplicationEventPublisher;
 
 import com.azure.spring.cloud.appconfiguration.config.implementation.AppConfigurationRefreshUtil.RefreshEventData;
+import com.azure.spring.cloud.appconfiguration.config.implementation.autofailover.ReplicaLookUp;
 
 import net.jcip.annotations.NotThreadSafe;
 
@@ -33,6 +34,9 @@ public class AppConfigurationPullRefreshTest {
 
     @Mock
     private AppConfigurationReplicaClientFactory clientFactoryMock;
+    
+    @Mock
+    private ReplicaLookUp replicaLookUpMock;
 
     @BeforeEach
     public void setup() {
@@ -51,11 +55,11 @@ public class AppConfigurationPullRefreshTest {
             .mockStatic(AppConfigurationRefreshUtil.class)) {
             refreshUtils
                 .when(() -> AppConfigurationRefreshUtil.refreshStoresCheck(Mockito.eq(clientFactoryMock),
-                    Mockito.eq(refreshInterval), Mockito.any(), Mockito.any()))
+                    Mockito.eq(refreshInterval), Mockito.any(), Mockito.any(), Mockito.any()))
                 .thenReturn(eventData);
 
             AppConfigurationPullRefresh refresh = new AppConfigurationPullRefresh(clientFactoryMock, refreshInterval,
-                (long) 0);
+                (long) 0, replicaLookUpMock);
             assertFalse(refresh.refreshConfigurations().block());
         }
     }
@@ -67,11 +71,11 @@ public class AppConfigurationPullRefreshTest {
             .mockStatic(AppConfigurationRefreshUtil.class)) {
             refreshUtils
                 .when(() -> AppConfigurationRefreshUtil.refreshStoresCheck(Mockito.eq(clientFactoryMock),
-                    Mockito.eq(refreshInterval), Mockito.any(), Mockito.any()))
+                    Mockito.eq(refreshInterval), Mockito.any(), Mockito.any(), Mockito.any()))
                 .thenReturn(eventData);
 
             AppConfigurationPullRefresh refresh = new AppConfigurationPullRefresh(clientFactoryMock, refreshInterval,
-                (long) 0);
+                (long) 0, replicaLookUpMock);
             refresh.setApplicationEventPublisher(publisher);
             assertTrue(refresh.refreshConfigurations().block());
         }

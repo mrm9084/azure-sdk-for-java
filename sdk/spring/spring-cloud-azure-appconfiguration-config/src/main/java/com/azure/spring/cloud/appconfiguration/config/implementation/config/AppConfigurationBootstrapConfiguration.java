@@ -16,6 +16,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.core.env.Environment;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.util.StringUtils;
 
 import com.azure.data.appconfiguration.ConfigurationClientBuilder;
@@ -26,6 +27,7 @@ import com.azure.spring.cloud.appconfiguration.config.implementation.AppConfigur
 import com.azure.spring.cloud.appconfiguration.config.implementation.AppConfigurationPropertySourceLocator;
 import com.azure.spring.cloud.appconfiguration.config.implementation.AppConfigurationReplicaClientFactory;
 import com.azure.spring.cloud.appconfiguration.config.implementation.AppConfigurationReplicaClientsBuilder;
+import com.azure.spring.cloud.appconfiguration.config.implementation.autofailover.ReplicaLookUp;
 import com.azure.spring.cloud.appconfiguration.config.implementation.properties.AppConfigurationProperties;
 import com.azure.spring.cloud.appconfiguration.config.implementation.properties.AppConfigurationProviderProperties;
 import com.azure.spring.cloud.autoconfigure.implementation.appconfiguration.AzureAppConfigurationProperties;
@@ -49,6 +51,7 @@ import com.azure.spring.cloud.service.implementation.keyvault.secrets.SecretClie
 @EnableConfigurationProperties({ AppConfigurationProperties.class, AppConfigurationProviderProperties.class })
 @ConditionalOnClass(AppConfigurationPropertySourceLocator.class)
 @ConditionalOnProperty(prefix = AppConfigurationProperties.CONFIG_PREFIX, name = "enabled", matchIfMissing = true)
+@EnableAsync
 public class AppConfigurationBootstrapConfiguration {
 
     @Autowired
@@ -57,11 +60,11 @@ public class AppConfigurationBootstrapConfiguration {
     @Bean
     AppConfigurationPropertySourceLocator sourceLocator(AppConfigurationProperties properties,
         AppConfigurationProviderProperties appProperties, AppConfigurationReplicaClientFactory clientFactory,
-        AppConfigurationKeyVaultClientFactory keyVaultClientFactory)
+        AppConfigurationKeyVaultClientFactory keyVaultClientFactory, ReplicaLookUp replicaLookUp)
         throws IllegalArgumentException {
 
         return new AppConfigurationPropertySourceLocator(appProperties, clientFactory, keyVaultClientFactory,
-            properties.getRefreshInterval(), properties.getStores());
+            properties.getRefreshInterval(), properties.getStores(), replicaLookUp);
     }
 
     @Bean
@@ -104,8 +107,8 @@ public class AppConfigurationBootstrapConfiguration {
     @Bean
     @ConditionalOnMissingBean
     AppConfigurationReplicaClientFactory buildClientFactory(AppConfigurationReplicaClientsBuilder clientBuilder,
-        AppConfigurationProperties properties) {
-        return new AppConfigurationReplicaClientFactory(clientBuilder, properties.getStores());
+        AppConfigurationProperties properties, ReplicaLookUp replicaLookUp) {
+        return new AppConfigurationReplicaClientFactory(clientBuilder, properties.getStores(), replicaLookUp);
     }
 
     /**
@@ -154,6 +157,11 @@ public class AppConfigurationBootstrapConfiguration {
         clientBuilder.setIsKeyVaultConfigured(keyVaultClientFactory.isConfigured());
 
         return clientBuilder;
+    }
+    
+    @Bean
+    ReplicaLookUp replicaLookUp() throws NamingException {
+        return new ReplicaLookUp();
     }
 
     private boolean isCredentialConfigured(AbstractAzureHttpConfigurationProperties properties) {

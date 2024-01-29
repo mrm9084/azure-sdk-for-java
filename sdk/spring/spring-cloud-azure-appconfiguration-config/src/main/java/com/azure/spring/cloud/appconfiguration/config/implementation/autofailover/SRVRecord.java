@@ -1,3 +1,5 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
 package com.azure.spring.cloud.appconfiguration.config.implementation.autofailover;
 
 public class SRVRecord {
@@ -32,9 +34,31 @@ public class SRVRecord {
     public String getTarget() {
         return target;
     }
+    
+    public String getEndpoint() {
+        return "https://" + target;
+    }
 
     @Override
     public String toString() {
         return String.format("Priority: %s, Weight %s, Port %s, Target %s", priority, weight, port, target);
+    }
+    
+    public int compareTo(SRVRecord record) {
+        if(priority > record.getPriority()) {
+            return 1;
+        }
+        if(record.getPriority() > priority) {
+            return -1;
+        }
+        
+        if(weight > record.getWeight()) {
+            return 1;
+        }
+        if(record.getWeight() > weight) {
+            return -1;
+        }
+        
+        return 0;
     }
 }

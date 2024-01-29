@@ -3,8 +3,6 @@
 package com.azure.spring.cloud.appconfiguration.config.implementation;
 
 import java.net.MalformedURLException;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.URL;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -31,8 +29,6 @@ import com.azure.core.util.CoreUtils;
 import com.azure.data.appconfiguration.ConfigurationClientBuilder;
 import com.azure.identity.ManagedIdentityCredentialBuilder;
 import com.azure.spring.cloud.appconfiguration.config.ConfigurationClientCustomizer;
-import com.azure.spring.cloud.appconfiguration.config.implementation.autofailover.DNSLookup;
-import com.azure.spring.cloud.appconfiguration.config.implementation.autofailover.SRVRecord;
 import com.azure.spring.cloud.appconfiguration.config.implementation.http.policy.BaseAppConfigurationPolicy;
 import com.azure.spring.cloud.appconfiguration.config.implementation.http.policy.TracingInfo;
 import com.azure.spring.cloud.appconfiguration.config.implementation.properties.ConfigStore;
@@ -91,14 +87,11 @@ public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
 
     private final int defaultMaxRetries;
 
-    private final DNSLookup dnsLookup;
-
     public AppConfigurationReplicaClientsBuilder(int defaultMaxRetries, ConfigurationClientBuilderFactory clientFactory,
         boolean credentialConfigured) throws NamingException {
         this.defaultMaxRetries = defaultMaxRetries;
         this.clientFactory = clientFactory;
         this.credentialConfigured = credentialConfigured;
-        this.dnsLookup = new DNSLookup();
     }
 
     /**
@@ -163,15 +156,11 @@ public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
         List<String> endpoints = configStore.getEndpoints();
 
         if (connectionStrings.size() == 0 && StringUtils.hasText(configStore.getConnectionString())) {
-            List<String> clientEndpoints = endpoints = this.getAutoFailoverEndpoints(configStore.getEndpoint());
-            ConnectionString connectionString = new ConnectionString(configStore.getConnectionString());
-
-            clientEndpoints
-                .forEach(endpoint -> connectionStrings.add(connectionString.clone().setUri(endpoint).toString()));
+            connectionStrings.add(configStore.getConnectionString());
         }
 
         if (endpoints.size() == 0 && StringUtils.hasText(configStore.getEndpoint())) {
-            endpoints = this.getAutoFailoverEndpoints(configStore.getEndpoint());
+            endpoints.add(configStore.getEndpoint());
         }
 
         if (connectionStrings.size() > 0) {
@@ -203,32 +192,17 @@ public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
         }
         return clients;
     }
+    
 
-    private List<String> getAutoFailoverEndpoints(String endpoint) {
-        List<String> endpoints = new ArrayList<>();
-        URI uri;
-        try {
-            uri = new URI(endpoint);
-            String host = uri.getHost();
-            SRVRecord origin = dnsLookup.getOriginRecord(host);
-            List<SRVRecord> replicas = dnsLookup.getReplicaRecords(origin);
-            endpoints.add(endpoint);
-            if (endpoint.equals("https://" + origin.getTarget())) {
-                replicas.stream().forEach(record -> endpoints.add("https://" + record.getTarget()));
-            } else {
-                endpoints.add("https://" + origin.getTarget());
-                replicas.stream().forEach(record -> {
-                    if (!endpoint.equals("https://" + record.getTarget())) {
-                        endpoints.add("https://" + record.getTarget());
-                    }
-                });
-            }
-        } catch (URISyntaxException e) {
-            // TODO Auto-generated catch block
-        } catch (NamingException e) {
-            // TODO Auto-generated catch block
+    public AppConfigurationReplicaClient buildClient(String failoverEndpoint, ConfigStore configStore) {
+        if (StringUtils.hasText(configStore.getConnectionString())) {
+            ConnectionString connectionString = new ConnectionString(configStore.getConnectionString());
+            connectionString.setUri(failoverEndpoint);
+            ConfigurationClientBuilder builder = createBuilderInstance().connectionString(connectionString.toString());
+            return modifyAndBuildClient(builder, failoverEndpoint, 0);
+
         }
-        return endpoints;
+        return null;
     }
 
     private AppConfigurationReplicaClient modifyAndBuildClient(ConfigurationClientBuilder builder, String endpoint,
@@ -380,7 +354,7 @@ public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
             }
         }
 
-        public ConnectionString(URL uri, String id, String secret) {
+        ConnectionString(URL uri, String id, String secret) {
             this.baseUri = uri;
             this.id = id;
             this.secret = secret;
@@ -403,4 +377,5 @@ public class AppConfigurationReplicaClientsBuilder implements EnvironmentAware {
             return String.format("%s%s;%s%s;%s%s", ENDPOINT, baseUri, ID, id, SECRET, secret);
         }
     }
+
 }
