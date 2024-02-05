@@ -24,6 +24,7 @@ import com.azure.spring.cloud.appconfiguration.config.ConfigurationClientCustomi
 import com.azure.spring.cloud.appconfiguration.config.KeyVaultSecretProvider;
 import com.azure.spring.cloud.appconfiguration.config.SecretClientCustomizer;
 import com.azure.spring.cloud.appconfiguration.config.implementation.AppConfigurationKeyVaultClientFactory;
+import com.azure.spring.cloud.appconfiguration.config.implementation.AppConfigurationPropertySourceFactory;
 import com.azure.spring.cloud.appconfiguration.config.implementation.AppConfigurationPropertySourceLocator;
 import com.azure.spring.cloud.appconfiguration.config.implementation.AppConfigurationReplicaClientFactory;
 import com.azure.spring.cloud.appconfiguration.config.implementation.AppConfigurationReplicaClientsBuilder;
@@ -59,16 +60,28 @@ public class AppConfigurationBootstrapConfiguration {
 
     @Bean
     AppConfigurationPropertySourceLocator sourceLocator(AppConfigurationProperties properties,
-        AppConfigurationProviderProperties appProperties, AppConfigurationReplicaClientFactory clientFactory,
-        AppConfigurationKeyVaultClientFactory keyVaultClientFactory, ReplicaLookUp replicaLookUp)
+        AppConfigurationProviderProperties appProperties, AppConfigurationKeyVaultClientFactory keyVaultClientFactory,
+        ReplicaLookUp replicaLookUp, AppConfigurationPropertySourceFactory propertySourceFactory)
         throws IllegalArgumentException {
 
-        return new AppConfigurationPropertySourceLocator(appProperties, clientFactory, keyVaultClientFactory,
-            properties.getRefreshInterval(), properties.getStores(), replicaLookUp);
+        return new AppConfigurationPropertySourceLocator(appProperties, keyVaultClientFactory,
+            properties.getRefreshInterval(), properties.getStores(), replicaLookUp, propertySourceFactory);
     }
 
     @Bean
-    AppConfigurationKeyVaultClientFactory appConfigurationKeyVaultClientFactory(Environment environment, AppConfigurationProviderProperties appProperties)
+    AppConfigurationPropertySourceFactory appConfigPropertySourceFactory(AppConfigurationProperties properties,
+        AppConfigurationProviderProperties appProperties, AppConfigurationReplicaClientFactory clientFactory,
+        AppConfigurationKeyVaultClientFactory keyVaultClientFactory, ReplicaLookUp replicaLookUp,
+        AppConfigurationPropertySourceFactory propertySourceFactory)
+        throws IllegalArgumentException {
+
+        return new AppConfigurationPropertySourceFactory(appProperties, clientFactory, keyVaultClientFactory,
+            properties.getRefreshInterval());
+    }
+
+    @Bean
+    AppConfigurationKeyVaultClientFactory appConfigurationKeyVaultClientFactory(Environment environment,
+        AppConfigurationProviderProperties appProperties)
         throws IllegalArgumentException {
         AzureGlobalProperties globalSource = Binder.get(environment).bindOrCreate(AzureGlobalProperties.PREFIX,
             AzureGlobalProperties.class);
@@ -155,7 +168,7 @@ public class AppConfigurationBootstrapConfiguration {
 
         return clientBuilder;
     }
-    
+
     @Bean
     ReplicaLookUp replicaLookUp(AppConfigurationProperties properties) throws NamingException {
         return new ReplicaLookUp(properties);
