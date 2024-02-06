@@ -91,30 +91,35 @@ public final class AppConfigurationPropertySourceLocator implements PropertySour
         newState.setNextForcedRefresh(refreshInterval);
 
         // Feature Management needs to be set in the last config store.
-        for (ConfigStore configStore : configStores) {
-            boolean loadNewPropertySources = STARTUP.get() || StateHolder.getLoadState(configStore.getEndpoint());
+        try {
+            for (ConfigStore configStore : configStores) {
+                boolean loadNewPropertySources = STARTUP.get() || StateHolder.getLoadState(configStore.getEndpoint());
 
-            if (configStore.isEnabled() && loadNewPropertySources) {
-                // There is only one Feature Set for all AppConfigurationPropertySources
-                List<AppConfigurationPropertySource> sourceList = propertySourceFactory.build(configStore, profiles,
-                    newState, STARTUP.get());
+                if (configStore.isEnabled() && loadNewPropertySources) {
+                    // There is only one Feature Set for all AppConfigurationPropertySources
+                    List<AppConfigurationPropertySource> sourceList = propertySourceFactory.build(configStore, profiles,
+                        newState, STARTUP.get());
 
-                if (sourceList != null) {
-                    // Updating list of propertySources
-                    sourceList.forEach(composite::addPropertySource);
-                } else if (!STARTUP.get() || (configStore.isFailFast() && STARTUP.get())) {
-                    String message = "Failed to generate property sources for " + configStore.getEndpoint();
+                    if (sourceList != null) {
+                        // Updating list of propertySources
+                        sourceList.forEach(composite::addPropertySource);
+                    } else if (!STARTUP.get() || (configStore.isFailFast() && STARTUP.get())) {
+                        String message = "Failed to generate property sources for " + configStore.getEndpoint();
 
-                    // Refresh failed for a config store ending attempt
-                    propertySourceFactory.failedToGeneratePropertySource(configStore, newState,
-                        new RuntimeException(message), STARTUP.get());
+                        // Refresh failed for a config store ending attempt
+                        propertySourceFactory.failedToGeneratePropertySource(configStore, newState,
+                            new RuntimeException(message), STARTUP.get());
+                    }
+
+                } else if (!configStore.isEnabled() && loadNewPropertySources) {
+                    LOGGER.info("Not loading configurations from {} as it is not enabled.", configStore.getEndpoint());
+                } else {
+                    LOGGER.warn("Not loading configurations from {} as it failed on startup.",
+                        configStore.getEndpoint());
                 }
-
-            } else if (!configStore.isEnabled() && loadNewPropertySources) {
-                LOGGER.info("Not loading configurations from {} as it is not enabled.", configStore.getEndpoint());
-            } else {
-                LOGGER.warn("Not loading configurations from {} as it failed on startup.", configStore.getEndpoint());
             }
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
         }
 
         StateHolder.updateState(newState);

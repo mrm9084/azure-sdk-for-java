@@ -44,39 +44,43 @@ public final class AppConfigurationPropertySourceFactory {
     private static final Logger LOGGER = LoggerFactory.getLogger(AppConfigurationPropertySourceFactory.class);
 
     List<AppConfigurationPropertySource> build(ConfigStore configStore, List<String> profiles, StateHolder newState,
-        Boolean startup) {
+        Boolean startup) throws InterruptedException {
 
-        List<AppConfigurationReplicaClient> clients = clientFactory.getAvailableClients(configStore.getEndpoint(),
-            true);
-        List<AppConfigurationPropertySource> sourceList = new ArrayList<>();
-        boolean reloadFailed = false;
-        for (AppConfigurationReplicaClient client : clients) {
-            sourceList = new ArrayList<>();
+        while (startup) {
 
-            if (!startup && reloadFailed && !AppConfigurationRefreshUtil
-                .checkStoreAfterRefreshFailed(client, clientFactory, configStore.getFeatureFlags(), profiles)) {
-                // This store doesn't have any changes where to refresh store did. Skipping Checking next.
-                continue;
-            }
+            List<AppConfigurationReplicaClient> clients = clientFactory.getAvailableClients(configStore.getEndpoint(),
+                true);
+            List<AppConfigurationPropertySource> sourceList = new ArrayList<>();
+            boolean reloadFailed = false;
+            for (AppConfigurationReplicaClient client : clients) {
+                sourceList = new ArrayList<>();
 
-            // Reverse in order to add Profile specific properties earlier, and last profile comes first
-            try {
-                List<AppConfigurationPropertySource> sources = create(client, configStore,
-                    profiles);
-                sourceList.addAll(sources);
+                if (!startup && reloadFailed && !AppConfigurationRefreshUtil
+                    .checkStoreAfterRefreshFailed(client, clientFactory, configStore.getFeatureFlags(), profiles)) {
+                    // This store doesn't have any changes where to refresh store did. Skipping Checking next.
+                    continue;
+                }
 
-                LOGGER.debug("PropertySource context.");
-                setupMonitoring(configStore, client, sources, newState);
+                // Reverse in order to add Profile specific properties earlier, and last profile comes first
+                try {
+                    List<AppConfigurationPropertySource> sources = create(client, configStore,
+                        profiles);
+                    sourceList.addAll(sources);
 
-                return sourceList;
-            } catch (AppConfigurationStatusException e) {
-                reloadFailed = true;
-                clientFactory.backoffClientClient(configStore.getEndpoint(), client.getEndpoint());
-            } catch (Exception e) {
-                newState = failedToGeneratePropertySource(configStore, newState, e, startup);
+                    LOGGER.debug("PropertySource context.");
+                    setupMonitoring(configStore, client, sources, newState);
 
-                // Not a retiable error
-                break;
+                    return sourceList;
+                } catch (AppConfigurationStatusException e) {
+                    // TODO NEW CODE HERE
+                    reloadFailed = true;
+                    clientFactory.backoffClientClient(configStore.getEndpoint(), client.getEndpoint());
+                } catch (Exception e) {
+                    newState = failedToGeneratePropertySource(configStore, newState, e, startup);
+
+                    // Not a retriable error
+                    return null;
+                }
             }
         }
         return null;
@@ -132,7 +136,7 @@ public final class AppConfigurationPropertySourceFactory {
     }
 
     StateHolder failedToGeneratePropertySource(ConfigStore configStore, StateHolder newState, Exception e,
-        Boolean startup) {
+        Boolean startup) throws InterruptedException {
         String message = "Failed to generate property sources for " + configStore.getEndpoint();
         if (!startup) {
             // Need to check for refresh first, or reset will never happen if fail fast is true.
@@ -203,7 +207,7 @@ public final class AppConfigurationPropertySourceFactory {
         return sourceList;
     }
 
-    private void delayException(AppConfigurationProviderProperties appProperties) {
+    private void delayException(AppConfigurationProviderProperties appProperties) throws InterruptedException {
         Instant currentDate = Instant.now();
         Instant preKillTIme = appProperties.getStartDate().plusSeconds(appProperties.getPrekillTime());
         if (currentDate.isBefore(preKillTIme)) {
@@ -212,6 +216,7 @@ public final class AppConfigurationPropertySourceFactory {
                 Thread.sleep(diffInMillies);
             } catch (InterruptedException e) {
                 LOGGER.error("Failed to wait before fast fail.");
+                throw e;
             }
         }
     }
