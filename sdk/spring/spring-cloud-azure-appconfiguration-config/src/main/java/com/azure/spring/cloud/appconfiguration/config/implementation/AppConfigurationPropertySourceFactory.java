@@ -44,45 +44,64 @@ public final class AppConfigurationPropertySourceFactory {
     private static final Logger LOGGER = LoggerFactory.getLogger(AppConfigurationPropertySourceFactory.class);
 
     List<AppConfigurationPropertySource> build(ConfigStore configStore, List<String> profiles, StateHolder newState,
-        Boolean startup) throws InterruptedException {
-        Boolean first = true;
-        // while (startup || first) {
-        first = false;
-        List<AppConfigurationReplicaClient> clients = clientFactory.getAvailableClients(configStore.getEndpoint(),
-            true);
-        List<AppConfigurationPropertySource> sourceList = new ArrayList<>();
-        boolean reloadFailed = false;
-        for (AppConfigurationReplicaClient client : clients) {
-            sourceList = new ArrayList<>();
-
-            if (!startup && reloadFailed && !AppConfigurationRefreshUtil
-                .checkStoreAfterRefreshFailed(client, clientFactory, configStore.getFeatureFlags(), profiles)) {
-                // This store doesn't have any changes where to refresh store did. Skipping Checking next.
+        Boolean startup, Duration startupTimeout) throws InterruptedException {
+        Instant storeLoadStartTime = Instant.now();
+        // Refresh should fail right away and not use retry.
+        Boolean firstTry = true;
+        while (startup || firstTry) {
+            firstTry = false;
+            if (Instant.now().isAfter(appProperties.getStartDate().plusSeconds(startupTimeout.getSeconds()))) {
+                throw new RuntimeException("App Configuration wasn't able to start in the given amount of time.");
+            }
+            List<AppConfigurationReplicaClient> clients = clientFactory.getAvailableClients(configStore.getEndpoint(),
+                true);
+            if (clients.size() == 0) {
+                Thread.sleep(1000);
                 continue;
             }
+            List<AppConfigurationPropertySource> sourceList = new ArrayList<>();
+            boolean reloadFailed = false;
+            for (AppConfigurationReplicaClient client : clients) {
+                sourceList = new ArrayList<>();
 
-            // Reverse in order to add Profile specific properties earlier, and last profile comes first
-            try {
-                List<AppConfigurationPropertySource> sources = create(client, configStore,
-                    profiles);
-                sourceList.addAll(sources);
+                if (!startup && reloadFailed && !AppConfigurationRefreshUtil
+                    .checkStoreAfterRefreshFailed(client, clientFactory, configStore.getFeatureFlags(), profiles)) {
+                    // This store doesn't have any changes where to refresh store did. Skipping Checking next.
+                    continue;
+                }
 
-                LOGGER.debug("PropertySource context.");
-                setupMonitoring(configStore, client, sources, newState);
+                // Reverse in order to add Profile specific properties earlier, and last profile comes first
+                try {
+                    List<AppConfigurationPropertySource> sources = create(client, configStore, profiles);
+                    sourceList.addAll(sources);
 
-                return sourceList;
-            } catch (AppConfigurationStatusException e) {
-                // TODO NEW CODE HERE
-                reloadFailed = true;
-                clientFactory.backoffClientClient(configStore.getEndpoint(), client.getEndpoint());
-            } catch (Exception e) {
-                newState = failedToGeneratePropertySource(configStore, newState, e, startup);
+                    LOGGER.debug("PropertySource context.");
+                    setupMonitoring(configStore, client, sources, newState);
 
-                // Not a retriable error
-                return null;
+                    return sourceList;
+                } catch (AppConfigurationStatusException e) {
+                    reloadFailed = true;
+                    Long backoff = null;
+                    if (startup) {
+                        Duration futureTimeout = Duration.between(appProperties.getStartDate(), Instant.now());
+                        backoff = BackoffTimeCalculator.calculateBackoffStartup(storeLoadStartTime);
+                        if (futureTimeout.getSeconds() < backoff) {
+                            return null;
+                        }
+                    }
+                    if (backoff != null) {
+                        clientFactory.backoffClientClient(configStore.getEndpoint(), client.getEndpoint(), backoff);
+                    } else {
+                        clientFactory.backoffClientClient(configStore.getEndpoint(), client.getEndpoint());
+                    }
+                } catch (Exception e) {
+                    newState = failedToGeneratePropertySource(configStore, newState, e, startup);
+
+                    // Not a retriable error
+                    return null;
+                }
             }
         }
-        // }
         return null;
     }
 

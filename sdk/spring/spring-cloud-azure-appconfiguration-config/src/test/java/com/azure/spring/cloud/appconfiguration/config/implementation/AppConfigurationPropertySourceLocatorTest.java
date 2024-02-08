@@ -14,6 +14,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -143,13 +144,13 @@ public class AppConfigurationPropertySourceLocatorTest {
         });
 
         when(emptyEnvironment.getPropertySources()).thenReturn(mutableSources);
-        when(propertySourceFactoryMock.build(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any()))
+        when(propertySourceFactoryMock.build(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any()))
             .thenReturn(List.of(new AppConfigurationApplicationSettingPropertySource("a", null, keyVaultClientFactory,
                 KEY_FILTER, null))).thenReturn(List.of(new AppConfigurationApplicationSettingPropertySource("b", null, keyVaultClientFactory,
                     KEY_FILTER, null)));
 
         locator = new AppConfigurationPropertySourceLocator(appProperties,
-            keyVaultClientFactory, null, properties.getStores(), replicaLookUpMock, propertySourceFactoryMock);
+            keyVaultClientFactory, null, properties.getStores(), replicaLookUpMock, propertySourceFactoryMock, Duration.ofSeconds(100));
 
         try (MockedStatic<StateHolder> stateHolderMock = Mockito.mockStatic(StateHolder.class)) {
             stateHolderMock.when(() -> StateHolder.updateState(Mockito.any())).thenReturn(null);
@@ -165,7 +166,7 @@ public class AppConfigurationPropertySourceLocatorTest {
 
     @Test
     public void awaitOnError() throws InterruptedException {
-        when(propertySourceFactoryMock.build(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any()))
+        when(propertySourceFactoryMock.build(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any()))
             .thenReturn(null);
         when(propertySourceFactoryMock.failedToGeneratePropertySource(Mockito.any(), Mockito.any(), Mockito.any(),
             Mockito.any())).thenThrow(new RuntimeException());
@@ -194,7 +195,7 @@ public class AppConfigurationPropertySourceLocatorTest {
         configStore.setEndpoint("");
 
         locator = new AppConfigurationPropertySourceLocator(appPropertiesMock, keyVaultClientFactory,
-            null, List.of(configStore), replicaLookUpMock, propertySourceFactoryMock);
+            null, List.of(configStore), replicaLookUpMock, propertySourceFactoryMock, Duration.ofSeconds(100));
 
         assertThrows(RuntimeException.class, () -> locator.locate(env));
         verify(propertySourceFactoryMock, times(1)).failedToGeneratePropertySource(Mockito.any(), Mockito.any(),
@@ -207,7 +208,7 @@ public class AppConfigurationPropertySourceLocatorTest {
         String[] profiles = {};
         when(emptyEnvironment.getActiveProfiles()).thenReturn(profiles);
         locator = new AppConfigurationPropertySourceLocator(appProperties, keyVaultClientFactory,
-            null, stores, replicaLookUpMock, propertySourceFactoryMock);
+            null, stores, replicaLookUpMock, propertySourceFactoryMock, Duration.ofSeconds(100));
 
         PropertySource<?> source = locator.locate(emptyEnvironment);
         assertTrue(source instanceof CompositePropertySource);

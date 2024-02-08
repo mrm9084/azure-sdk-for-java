@@ -69,6 +69,15 @@ public class AppConfigurationReplicaClientFactory {
     void backoffClientClient(String originEndpoint, String endpoint) {
         CONNECTIONS.get(originEndpoint).backoffClient(endpoint);
     }
+    
+    /**
+     * Sets backoff time for the current client that is being used, and attempts to get a new one.
+     * @param originEndpoint identifier of the store. The identifier is the primary endpoint of the store.
+     * @param endpoint replica endpoint
+     */
+    void backoffClientClient(String originEndpoint, String endpoint, Long backoff) {
+        CONNECTIONS.get(originEndpoint).backoffClient(endpoint, backoff);
+    }
 
     /**
      * Gets the health of the client connections to App Configuration

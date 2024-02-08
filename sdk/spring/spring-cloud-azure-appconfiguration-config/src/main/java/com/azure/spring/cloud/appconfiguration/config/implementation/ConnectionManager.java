@@ -168,6 +168,23 @@ public class ConnectionManager {
         long backoffTime = BackoffTimeCalculator.calculateBackoff(failedAttempt);
         autoFailoverClients.get(endpoint).updateBackoffEndTime(Instant.now().plusNanos(backoffTime));
     }
+    
+    /**
+     * Call when the current client failed
+     * @param endpoint replica endpoint
+     */
+    void backoffClient(String endpoint, Long backoff) {
+        for (AppConfigurationReplicaClient client : clients) {
+            if (client.getEndpoint().equals(endpoint)) {
+                client.updateBackoffEndTime(Instant.now().plusNanos(backoff));
+                return;
+            }
+        }
+
+        int failedAttempt = autoFailoverClients.get(endpoint).getFailedAttempts();
+        long backoffTime = BackoffTimeCalculator.calculateBackoff(failedAttempt);
+        autoFailoverClients.get(endpoint).updateBackoffEndTime(Instant.now().plusNanos(backoffTime));
+    }
 
     /**
      * Updates the sync token of the client. Only works if no replicas are being used.

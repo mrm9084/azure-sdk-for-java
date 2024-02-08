@@ -2,6 +2,10 @@
 // Licensed under the MIT License.
 package com.azure.spring.cloud.appconfiguration.config.implementation;
 
+import java.security.SecureRandom;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
 import java.util.Random;
 
 /**
@@ -18,6 +22,8 @@ final class BackoffTimeCalculator {
     private static Long maxBackoff = (long) 600;
 
     private static Long minBackoff = (long) 30;
+
+    private static Double JITTER_RATIO = 0.25;
 
     /**
      *
@@ -36,6 +42,16 @@ final class BackoffTimeCalculator {
      * @throws IllegalArgumentException when back off time or attempt number is invalid
      */
     static Long calculateBackoff(Integer attempts) {
+        return calculateBackoff(attempts, maxBackoff);
+    }
+
+    /**
+     * Calculates the new Backoff time for requests.
+     * @param attempts Number of attempts so far
+     * @return Nano Seconds to the next request
+     * @throws IllegalArgumentException when back off time or attempt number is invalid
+     */
+    static Long calculateBackoff(Integer attempts, Long maxBackoff) {
 
         if (minBackoff < 0) {
             throw new IllegalArgumentException("Minimum Backoff time needs to be greater than or equal to 0.");
@@ -63,6 +79,29 @@ final class BackoffTimeCalculator {
         }
 
         return (long) (minBackoffNano + ((RANDOM.nextDouble() * (maxNanoSeconds - minBackoffNano)) + minBackoffNano));
+    }
+    
+    static Long calculateBackoffStartup(Instant storeLoadStartTime) {
+        if (storeLoadStartTime == null) {
+            return null;
+        }
+        Duration timeElapsed = Duration.between(storeLoadStartTime, Instant.now());
+        List<List<Integer>> startupBackoffs = List.of(List.of(100, 5), List.of(200, 10), List.of(600, 30));
+        
+        for (List<Integer> entry: startupBackoffs) {
+            if (timeElapsed.toSeconds() < entry.get(0)) {
+                long jitter = jitter(Long.valueOf(entry.get(1)));
+                return jitter;
+            }
+        }
+        return null;
+    }
+    
+    private static long jitter(long backoff) {      
+        Double rand = new SecureRandom().nextDouble();
+        double jitter = JITTER_RATIO * (rand * 2 -1);
+        double interval = backoff * (1 + jitter);
+        return (long) interval;
     }
 
 }

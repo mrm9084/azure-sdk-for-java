@@ -65,7 +65,7 @@ public class AppConfigurationBootstrapConfiguration {
         throws IllegalArgumentException {
 
         return new AppConfigurationPropertySourceLocator(appProperties, keyVaultClientFactory,
-            properties.getRefreshInterval(), properties.getStores(), replicaLookUp, propertySourceFactory);
+            properties.getRefreshInterval(), properties.getStores(), replicaLookUp, propertySourceFactory, properties.getStartupTimeout());
     }
 
     @Bean

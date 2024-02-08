@@ -31,6 +31,8 @@ public final class AppConfigurationProperties {
 
     private Duration refreshInterval;
 
+    private Duration startupTimeout = Duration.ofSeconds(100);
+
     /**
      * @return the enabled
      */
@@ -71,6 +73,20 @@ public final class AppConfigurationProperties {
      */
     public void setRefreshInterval(Duration refreshInterval) {
         this.refreshInterval = refreshInterval;
+    }
+
+    /**
+     * @return the startupTimeout
+     */
+    public Duration getStartupTimeout() {
+        return startupTimeout;
+    }
+
+    /**
+     * @param startupTimeout the startupTimeout to set
+     */
+    public void setStartupTimeout(Duration startupTimeout) {
+        this.startupTimeout = startupTimeout;
     }
 
     /**

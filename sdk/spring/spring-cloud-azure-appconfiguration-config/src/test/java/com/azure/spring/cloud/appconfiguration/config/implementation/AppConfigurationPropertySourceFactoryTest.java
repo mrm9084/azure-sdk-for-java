@@ -13,6 +13,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -133,7 +134,7 @@ public class AppConfigurationPropertySourceFactoryTest {
         try (MockedStatic<StateHolder> stateHolderMock = Mockito.mockStatic(StateHolder.class)) {
             stateHolderMock.when(() -> StateHolder.updateState(Mockito.any())).thenReturn(null);
             List<AppConfigurationPropertySource> sources = propertySourceFactory.build(configStoreMock, List.of(),
-                new StateHolder(), true);
+                new StateHolder(), true, Duration.ofSeconds(100));
 
             String[] expectedSourceNames = new String[] {
                 KEY_FILTER + "store1/\0"
@@ -171,7 +172,7 @@ public class AppConfigurationPropertySourceFactoryTest {
         try (MockedStatic<StateHolder> stateHolderMock = Mockito.mockStatic(StateHolder.class)) {
             stateHolderMock.when(() -> StateHolder.updateState(Mockito.any())).thenReturn(null);
             List<AppConfigurationPropertySource> sources = propertySourceFactory.build(configStoreMock, List.of(),
-                new StateHolder(), true);
+                new StateHolder(), true, Duration.ofSeconds(100));
 
             String[] expectedSourceNames = new String[] {
                 KEY_FILTER + "store1/\0"
@@ -209,7 +210,7 @@ public class AppConfigurationPropertySourceFactoryTest {
         try (MockedStatic<StateHolder> stateHolderMock = Mockito.mockStatic(StateHolder.class)) {
             stateHolderMock.when(() -> StateHolder.updateState(Mockito.any())).thenReturn(null);
             List<AppConfigurationPropertySource> sources = propertySourceFactory.build(configStoreMock, List.of(),
-                new StateHolder(), true);
+                new StateHolder(), true, Duration.ofSeconds(100));
 
             String[] expectedSourceNames = new String[] {
                 KEY_FILTER + "store1/\0"
@@ -236,7 +237,7 @@ public class AppConfigurationPropertySourceFactoryTest {
         try (MockedStatic<StateHolder> stateHolderMock = Mockito.mockStatic(StateHolder.class)) {
             stateHolderMock.when(() -> StateHolder.updateState(Mockito.any())).thenReturn(null);
             List<AppConfigurationPropertySource> sources = propertySourceFactory.build(configStoreMock,
-                List.of(PROFILE_NAME_1), new StateHolder(), true);
+                List.of(PROFILE_NAME_1), new StateHolder(), true, Duration.ofSeconds(100));
 
             String[] expectedSourceNames = new String[] {
                 KEY_FILTER + "store1/dev"
@@ -264,7 +265,7 @@ public class AppConfigurationPropertySourceFactoryTest {
             List<String> profiles = new ArrayList<>();
             profiles.addAll(List.of(PROFILE_NAME_1, PROFILE_NAME_2));
             List<AppConfigurationPropertySource> sources = propertySourceFactory.build(configStoreMock, profiles,
-                new StateHolder(), true);
+                new StateHolder(), true, Duration.ofSeconds(100));
 
             String[] expectedSourceNames = new String[] {
                 KEY_FILTER + "store1/prod,dev"
@@ -295,7 +296,7 @@ public class AppConfigurationPropertySourceFactoryTest {
         try (MockedStatic<StateHolder> stateHolderMock = Mockito.mockStatic(StateHolder.class)) {
             stateHolderMock.when(() -> StateHolder.updateState(Mockito.any())).thenReturn(null);
             List<AppConfigurationPropertySource> sources = propertySourceFactory.build(configStoreMock, List.of(),
-                new StateHolder(), true);
+                new StateHolder(), true, Duration.ofSeconds(100));
 
             // Application name: foo and active profile: dev,prod, should construct below
             // composite Property Source:
@@ -333,7 +334,7 @@ public class AppConfigurationPropertySourceFactoryTest {
         try (MockedStatic<StateHolder> stateHolderMock = Mockito.mockStatic(StateHolder.class)) {
             stateHolderMock.when(() -> StateHolder.updateState(Mockito.any())).thenReturn(null);
             List<AppConfigurationPropertySource> sources = propertySourceFactory.build(configStoreMock, List.of(),
-                new StateHolder(), true);
+                new StateHolder(), true, Duration.ofSeconds(100));
             // Application name: foo and active profile: dev,prod, should construct below
             // composite Property Source:
             // [/foo_prod/, /foo_dev/, /foo/, /application_prod/, /application_dev/,
@@ -374,7 +375,7 @@ public class AppConfigurationPropertySourceFactoryTest {
         try (MockedStatic<StateHolder> stateHolderMock = Mockito.mockStatic(StateHolder.class)) {
             stateHolderMock.when(() -> StateHolder.updateState(Mockito.any())).thenReturn(null);
             List<AppConfigurationPropertySource> sources = propertySourceFactory.build(configStoreMock, List.of(),
-                new StateHolder(), true);
+                new StateHolder(), true, Duration.ofSeconds(100));
             // Application name: foo and active profile: dev,prod, should construct below
             // composite Property Source:
             // [/foo_prod/, /foo_dev/, /foo/, /application_prod/, /application_dev/,
@@ -404,7 +405,7 @@ public class AppConfigurationPropertySourceFactoryTest {
         try (MockedStatic<StateHolder> stateHolderMock = Mockito.mockStatic(StateHolder.class)) {
             stateHolderMock.when(() -> StateHolder.updateState(Mockito.any())).thenReturn(null);
             List<AppConfigurationPropertySource> sources = propertySourceFactory.build(configStoreMock, List.of(),
-                new StateHolder(), true);
+                new StateHolder(), true, Duration.ofSeconds(100));
             // Application name: foo and active profile: dev,prod, should construct below
             // composite Property Source:
             // [/foo_prod/, /foo_dev/, /foo/, /application_prod/, /application_dev/,
@@ -435,7 +436,7 @@ public class AppConfigurationPropertySourceFactoryTest {
             .thenReturn(Arrays.asList(replicaClientMock));
         when(replicaClientMock.getWatchKey(Mockito.any(), Mockito.anyString())).thenThrow(new RuntimeException());
         RuntimeException e = assertThrows(RuntimeException.class,
-            () -> propertySourceFactory.build(configStoreMock, List.of(), new StateHolder(), true));
+            () -> propertySourceFactory.build(configStoreMock, List.of(), new StateHolder(), true, Duration.ofSeconds(100)));
         assertEquals("Failed to generate property sources for " + TEST_STORE_NAME, e.getMessage());
         verify(configStoreMock, times(1)).isFailFast();
     }
@@ -455,7 +456,7 @@ public class AppConfigurationPropertySourceFactoryTest {
         try (MockedStatic<StateHolder> stateHolderMock = Mockito.mockStatic(StateHolder.class)) {
             stateHolderMock.when(() -> StateHolder.getLoadState(Mockito.anyString())).thenReturn(true);
             RuntimeException e = assertThrows(RuntimeException.class,
-                () -> propertySourceFactory.build(configStoreMock, List.of(), new StateHolder(), false));
+                () -> propertySourceFactory.build(configStoreMock, List.of(), new StateHolder(), false, Duration.ofSeconds(100)));
             assertEquals("Failed to generate property sources for store1", e.getMessage());
         }
     }
@@ -474,7 +475,7 @@ public class AppConfigurationPropertySourceFactoryTest {
         try (MockedStatic<StateHolder> stateHolderMock = Mockito.mockStatic(StateHolder.class)) {
             stateHolderMock.when(() -> StateHolder.updateState(Mockito.any())).thenReturn(null);
             List<AppConfigurationPropertySource> sources = propertySourceFactory.build(configStoreMock, List.of(),
-                new StateHolder(), true);
+                new StateHolder(), true, Duration.ofSeconds(100));
             assertNull(sources);
 
             // Once a store fails it should stop attempting to load

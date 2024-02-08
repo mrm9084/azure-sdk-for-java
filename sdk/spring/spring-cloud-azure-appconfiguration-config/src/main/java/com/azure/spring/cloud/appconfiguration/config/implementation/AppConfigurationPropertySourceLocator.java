@@ -42,6 +42,8 @@ public final class AppConfigurationPropertySourceLocator implements PropertySour
 
     private Duration refreshInterval;
 
+    private final Duration startupTimeout;
+
     static final AtomicBoolean STARTUP = new AtomicBoolean(true);
 
     /**
@@ -55,11 +57,12 @@ public final class AppConfigurationPropertySourceLocator implements PropertySour
     public AppConfigurationPropertySourceLocator(AppConfigurationProviderProperties appProperties,
         AppConfigurationKeyVaultClientFactory keyVaultClientFactory,
         Duration refreshInterval, List<ConfigStore> configStores, ReplicaLookUp replicaLookUp,
-        AppConfigurationPropertySourceFactory propertySourceFactory) {
+        AppConfigurationPropertySourceFactory propertySourceFactory, Duration startupTimeout) {
         this.refreshInterval = refreshInterval;
         this.configStores = configStores;
         this.replicaLookUp = replicaLookUp;
         this.propertySourceFactory = propertySourceFactory;
+        this.startupTimeout = startupTimeout;
 
         BackoffTimeCalculator.setDefaults(appProperties.getDefaultMaxBackoff(), appProperties.getDefaultMinBackoff());
     }
@@ -98,7 +101,7 @@ public final class AppConfigurationPropertySourceLocator implements PropertySour
                 if (configStore.isEnabled() && loadNewPropertySources) {
                     // There is only one Feature Set for all AppConfigurationPropertySources
                     List<AppConfigurationPropertySource> sourceList = propertySourceFactory.build(configStore, profiles,
-                        newState, STARTUP.get());
+                        newState, STARTUP.get(), startupTimeout);
 
                     if (sourceList != null) {
                         // Updating list of propertySources
