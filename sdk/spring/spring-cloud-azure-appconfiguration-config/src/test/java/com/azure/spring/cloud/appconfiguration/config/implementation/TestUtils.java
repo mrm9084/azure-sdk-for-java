@@ -14,6 +14,7 @@ import com.azure.data.appconfiguration.models.SecretReferenceConfigurationSettin
 import com.azure.spring.cloud.appconfiguration.config.implementation.properties.AppConfigurationKeyValueSelector;
 import com.azure.spring.cloud.appconfiguration.config.implementation.properties.AppConfigurationProperties;
 import com.azure.spring.cloud.appconfiguration.config.implementation.properties.ConfigStore;
+import com.azure.spring.cloud.appconfiguration.config.implementation.properties.FeatureFlagStore;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -107,6 +108,9 @@ public final class TestUtils {
         List<AppConfigurationKeyValueSelector> selects = new ArrayList<>();
         selects.add(selectedKeys);
         store.setSelects(selects);
+        FeatureFlagStore featureFlagStore = new FeatureFlagStore();
+        featureFlagStore.setEnabled(false);
+        store.setFeatureFlags(featureFlagStore);
         stores.add(store);
         properties.setStores(stores);
     }

@@ -45,9 +45,9 @@ public final class AppConfigurationPropertySourceFactory {
 
     List<AppConfigurationPropertySource> build(ConfigStore configStore, List<String> profiles, StateHolder newState,
         Boolean startup) throws InterruptedException {
-
-        while (startup) {
-
+        Boolean first = true; 
+        while (startup || first) {
+            first = false;
             List<AppConfigurationReplicaClient> clients = clientFactory.getAvailableClients(configStore.getEndpoint(),
                 true);
             List<AppConfigurationPropertySource> sourceList = new ArrayList<>();

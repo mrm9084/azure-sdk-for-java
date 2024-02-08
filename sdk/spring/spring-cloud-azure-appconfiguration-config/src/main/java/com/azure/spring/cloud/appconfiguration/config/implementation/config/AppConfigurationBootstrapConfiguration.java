@@ -71,8 +71,7 @@ public class AppConfigurationBootstrapConfiguration {
     @Bean
     AppConfigurationPropertySourceFactory appConfigPropertySourceFactory(AppConfigurationProperties properties,
         AppConfigurationProviderProperties appProperties, AppConfigurationReplicaClientFactory clientFactory,
-        AppConfigurationKeyVaultClientFactory keyVaultClientFactory, ReplicaLookUp replicaLookUp,
-        AppConfigurationPropertySourceFactory propertySourceFactory)
+        AppConfigurationKeyVaultClientFactory keyVaultClientFactory)
         throws IllegalArgumentException {
 
         return new AppConfigurationPropertySourceFactory(appProperties, clientFactory, keyVaultClientFactory,
