@@ -45,44 +45,44 @@ public final class AppConfigurationPropertySourceFactory {
 
     List<AppConfigurationPropertySource> build(ConfigStore configStore, List<String> profiles, StateHolder newState,
         Boolean startup) throws InterruptedException {
-        Boolean first = true; 
-        while (startup || first) {
-            first = false;
-            List<AppConfigurationReplicaClient> clients = clientFactory.getAvailableClients(configStore.getEndpoint(),
-                true);
-            List<AppConfigurationPropertySource> sourceList = new ArrayList<>();
-            boolean reloadFailed = false;
-            for (AppConfigurationReplicaClient client : clients) {
-                sourceList = new ArrayList<>();
+        Boolean first = true;
+        // while (startup || first) {
+        first = false;
+        List<AppConfigurationReplicaClient> clients = clientFactory.getAvailableClients(configStore.getEndpoint(),
+            true);
+        List<AppConfigurationPropertySource> sourceList = new ArrayList<>();
+        boolean reloadFailed = false;
+        for (AppConfigurationReplicaClient client : clients) {
+            sourceList = new ArrayList<>();
 
-                if (!startup && reloadFailed && !AppConfigurationRefreshUtil
-                    .checkStoreAfterRefreshFailed(client, clientFactory, configStore.getFeatureFlags(), profiles)) {
-                    // This store doesn't have any changes where to refresh store did. Skipping Checking next.
-                    continue;
-                }
+            if (!startup && reloadFailed && !AppConfigurationRefreshUtil
+                .checkStoreAfterRefreshFailed(client, clientFactory, configStore.getFeatureFlags(), profiles)) {
+                // This store doesn't have any changes where to refresh store did. Skipping Checking next.
+                continue;
+            }
 
-                // Reverse in order to add Profile specific properties earlier, and last profile comes first
-                try {
-                    List<AppConfigurationPropertySource> sources = create(client, configStore,
-                        profiles);
-                    sourceList.addAll(sources);
+            // Reverse in order to add Profile specific properties earlier, and last profile comes first
+            try {
+                List<AppConfigurationPropertySource> sources = create(client, configStore,
+                    profiles);
+                sourceList.addAll(sources);
 
-                    LOGGER.debug("PropertySource context.");
-                    setupMonitoring(configStore, client, sources, newState);
+                LOGGER.debug("PropertySource context.");
+                setupMonitoring(configStore, client, sources, newState);
 
-                    return sourceList;
-                } catch (AppConfigurationStatusException e) {
-                    // TODO NEW CODE HERE
-                    reloadFailed = true;
-                    clientFactory.backoffClientClient(configStore.getEndpoint(), client.getEndpoint());
-                } catch (Exception e) {
-                    newState = failedToGeneratePropertySource(configStore, newState, e, startup);
+                return sourceList;
+            } catch (AppConfigurationStatusException e) {
+                // TODO NEW CODE HERE
+                reloadFailed = true;
+                clientFactory.backoffClientClient(configStore.getEndpoint(), client.getEndpoint());
+            } catch (Exception e) {
+                newState = failedToGeneratePropertySource(configStore, newState, e, startup);
 
-                    // Not a retriable error
-                    return null;
-                }
+                // Not a retriable error
+                return null;
             }
         }
+        // }
         return null;
     }
 

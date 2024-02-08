@@ -16,7 +16,6 @@ import static org.mockito.Mockito.when;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
@@ -31,11 +30,8 @@ import org.mockito.MockitoAnnotations;
 import org.mockito.MockitoSession;
 import org.springframework.core.env.PropertySource;
 
-import com.azure.core.http.rest.PagedFlux;
-import com.azure.core.http.rest.PagedResponse;
 import com.azure.data.appconfiguration.models.ConfigurationSetting;
 import com.azure.data.appconfiguration.models.FeatureFlagConfigurationSetting;
-import com.azure.spring.cloud.appconfiguration.config.implementation.autofailover.ReplicaLookUp;
 import com.azure.spring.cloud.appconfiguration.config.implementation.feature.entity.Feature;
 import com.azure.spring.cloud.appconfiguration.config.implementation.http.policy.TracingInfo;
 import com.azure.spring.cloud.appconfiguration.config.implementation.properties.AppConfigurationKeyValueSelector;
@@ -45,8 +41,6 @@ import com.azure.spring.cloud.appconfiguration.config.implementation.properties.
 import com.azure.spring.cloud.appconfiguration.config.implementation.properties.AppConfigurationStoreTrigger;
 import com.azure.spring.cloud.appconfiguration.config.implementation.properties.ConfigStore;
 import com.azure.spring.cloud.appconfiguration.config.implementation.properties.FeatureFlagStore;
-
-import reactor.core.publisher.Flux;
 
 @TestMethodOrder(MethodOrderer.MethodName.class)
 public class AppConfigurationPropertySourceFactoryTest {
@@ -70,42 +64,16 @@ public class AppConfigurationPropertySourceFactoryTest {
     private FeatureFlagStore featureFlagStoreMock;
 
     @Mock
-    private PagedFlux<ConfigurationSetting> settingsMock;
-
-    @Mock
-    private Iterable<PagedResponse<ConfigurationSetting>> iterableMock;
-
-    @Mock
-    private Iterator<PagedResponse<ConfigurationSetting>> iteratorMock;
-
-    @Mock
-    private Flux<PagedResponse<ConfigurationSetting>> pageMock;
-
-    @Mock
-    private PagedResponse<ConfigurationSetting> pagedMock;
-
-    @Mock
     private ConfigStore configStoreMock;
-
-    @Mock
-    private ConfigStore configStoreMockError;
-
-    @Mock
-    private AppConfigurationProviderProperties appPropertiesMock;
 
     private AppConfigurationProperties properties;
 
     @Mock
     private List<ConfigurationSetting> watchKeyListMock;
 
-    @Mock
-    private ReplicaLookUp replicaLookUpMock;
-
     private AppConfigurationPropertySourceFactory propertySourceFactory;
 
     private AppConfigurationProviderProperties appProperties;
-
-    private List<ConfigStore> stores;
 
     private MockitoSession session;
 
@@ -121,16 +89,6 @@ public class AppConfigurationPropertySourceFactoryTest {
 
         when(configStoreMock.getEndpoint()).thenReturn(TEST_STORE_NAME);
 
-        stores = new ArrayList<>();
-        stores.add(configStoreMock);
-
-        when(watchKeyListMock.iterator()).thenReturn(Collections.emptyIterator());
-
-        when(clientFactoryMock.getAvailableClients(Mockito.anyString(), Mockito.eq(true)))
-            .thenReturn(Arrays.asList(replicaClientMock));
-        when(replicaClientMock.listSettings(Mockito.any())).thenReturn(watchKeyListMock)
-            .thenReturn(watchKeyListMock).thenReturn(watchKeyListMock);
-
         appProperties = new AppConfigurationProviderProperties();
         appProperties.setVersion("1.0");
         appProperties.setMaxRetries(12);
@@ -139,9 +97,7 @@ public class AppConfigurationPropertySourceFactoryTest {
         appProperties.setDefaultMinBackoff((long) 30);
 
         AppConfigurationKeyValueSelector selectedKeys = new AppConfigurationKeyValueSelector().setKeyFilter(KEY_FILTER);
-        List<AppConfigurationKeyValueSelector> selects = new ArrayList<>();
-        selects.add(selectedKeys);
-        when(configStoreMock.getSelects()).thenReturn(selects);
+        when(configStoreMock.getSelects()).thenReturn(List.of(selectedKeys));
     }
 
     @AfterEach
@@ -150,29 +106,34 @@ public class AppConfigurationPropertySourceFactoryTest {
         AppConfigurationPropertySourceLocator.STARTUP.set(true);
         session.finishMocking();
     }
-    
+
     public void setupMonitoring() {
         AppConfigurationStoreMonitoring monitoring = new AppConfigurationStoreMonitoring();
         monitoring.setEnabled(false);
         AppConfigurationStoreTrigger trigger = new AppConfigurationStoreTrigger();
         trigger.setKey("sentinel");
         trigger.setKey("test");
-        ArrayList<AppConfigurationStoreTrigger> triggers = new ArrayList<>();
-        triggers.add(trigger);
-        monitoring.setTriggers(triggers);
+        monitoring.setTriggers(List.of(trigger));
         when(configStoreMock.getMonitoring()).thenReturn(monitoring);
     }
 
     @Test
     public void compositeSourceIsCreated() throws InterruptedException {
+        when(clientFactoryMock.getAvailableClients(Mockito.anyString(), Mockito.eq(true)))
+            .thenReturn(Arrays.asList(replicaClientMock));
+        when(watchKeyListMock.iterator()).thenReturn(Collections.emptyIterator());
+        when(replicaClientMock.listSettings(Mockito.any())).thenReturn(watchKeyListMock)
+            .thenReturn(watchKeyListMock).thenReturn(watchKeyListMock);
         setupMonitoring();
         when(configStoreMock.getFeatureFlags()).thenReturn(featureFlagStoreMock);
-        
-        propertySourceFactory = new AppConfigurationPropertySourceFactory(appProperties, clientFactoryMock, keyVaultClientFactory, null);
+
+        propertySourceFactory = new AppConfigurationPropertySourceFactory(appProperties, clientFactoryMock,
+            keyVaultClientFactory, null);
 
         try (MockedStatic<StateHolder> stateHolderMock = Mockito.mockStatic(StateHolder.class)) {
             stateHolderMock.when(() -> StateHolder.updateState(Mockito.any())).thenReturn(null);
-            List<AppConfigurationPropertySource> sources = propertySourceFactory.build(configStoreMock, List.of(), new StateHolder(), true);
+            List<AppConfigurationPropertySource> sources = propertySourceFactory.build(configStoreMock, List.of(),
+                new StateHolder(), true);
 
             String[] expectedSourceNames = new String[] {
                 KEY_FILTER + "store1/\0"
@@ -184,17 +145,20 @@ public class AppConfigurationPropertySourceFactoryTest {
 
     @Test
     public void compositeSourceIsCreatedWithMonitoring() throws InterruptedException {
+        when(clientFactoryMock.getAvailableClients(Mockito.anyString(), Mockito.eq(true)))
+            .thenReturn(Arrays.asList(replicaClientMock));
+        when(watchKeyListMock.iterator()).thenReturn(Collections.emptyIterator());
+        when(replicaClientMock.listSettings(Mockito.any())).thenReturn(watchKeyListMock)
+            .thenReturn(watchKeyListMock).thenReturn(watchKeyListMock);
         String watchKey = "wk1";
         String watchValue = "0";
         String watchLabel = EMPTY_LABEL;
         AppConfigurationStoreMonitoring monitoring = new AppConfigurationStoreMonitoring();
         monitoring.setEnabled(true);
-        List<AppConfigurationStoreTrigger> watchKeys = new ArrayList<>();
         AppConfigurationStoreTrigger trigger = new AppConfigurationStoreTrigger();
         trigger.setKey(watchKey);
         trigger.setLabel(watchLabel);
-        watchKeys.add(trigger);
-        monitoring.setTriggers(watchKeys);
+        monitoring.setTriggers(List.of(trigger));
 
         when(configStoreMock.getMonitoring()).thenReturn(monitoring);
         when(configStoreMock.getFeatureFlags()).thenReturn(featureFlagStoreMock);
@@ -220,16 +184,19 @@ public class AppConfigurationPropertySourceFactoryTest {
 
     @Test
     public void compositeSourceIsCreatedWithMonitoringNoWatchKey() throws InterruptedException {
+        when(clientFactoryMock.getAvailableClients(Mockito.anyString(), Mockito.eq(true)))
+            .thenReturn(Arrays.asList(replicaClientMock));
+        when(watchKeyListMock.iterator()).thenReturn(Collections.emptyIterator());
+        when(replicaClientMock.listSettings(Mockito.any())).thenReturn(watchKeyListMock)
+            .thenReturn(watchKeyListMock).thenReturn(watchKeyListMock);
         String watchKey = "wk1";
         String watchLabel = EMPTY_LABEL;
         AppConfigurationStoreMonitoring monitoring = new AppConfigurationStoreMonitoring();
         monitoring.setEnabled(true);
-        List<AppConfigurationStoreTrigger> watchKeys = new ArrayList<>();
         AppConfigurationStoreTrigger trigger = new AppConfigurationStoreTrigger();
         trigger.setKey(watchKey);
         trigger.setLabel(watchLabel);
-        watchKeys.add(trigger);
-        monitoring.setTriggers(watchKeys);
+        monitoring.setTriggers(List.of(trigger));
 
         when(configStoreMock.getMonitoring()).thenReturn(monitoring);
         when(configStoreMock.getFeatureFlags()).thenReturn(featureFlagStoreMock);
@@ -255,14 +222,21 @@ public class AppConfigurationPropertySourceFactoryTest {
 
     @Test
     public void devSourceIsCreated() throws InterruptedException {
+        when(clientFactoryMock.getAvailableClients(Mockito.anyString(), Mockito.eq(true)))
+            .thenReturn(Arrays.asList(replicaClientMock));
+        when(replicaClientMock.listSettings(Mockito.any())).thenReturn(watchKeyListMock)
+            .thenReturn(watchKeyListMock).thenReturn(watchKeyListMock);
+        when(watchKeyListMock.iterator()).thenReturn(Collections.emptyIterator());
         setupMonitoring();
         when(configStoreMock.getFeatureFlags()).thenReturn(featureFlagStoreMock);
 
-        propertySourceFactory = new AppConfigurationPropertySourceFactory(appProperties, clientFactoryMock, keyVaultClientFactory, null);
+        propertySourceFactory = new AppConfigurationPropertySourceFactory(appProperties, clientFactoryMock,
+            keyVaultClientFactory, null);
 
         try (MockedStatic<StateHolder> stateHolderMock = Mockito.mockStatic(StateHolder.class)) {
             stateHolderMock.when(() -> StateHolder.updateState(Mockito.any())).thenReturn(null);
-            List<AppConfigurationPropertySource> sources = propertySourceFactory.build(configStoreMock, List.of(PROFILE_NAME_1), new StateHolder(), true);
+            List<AppConfigurationPropertySource> sources = propertySourceFactory.build(configStoreMock,
+                List.of(PROFILE_NAME_1), new StateHolder(), true);
 
             String[] expectedSourceNames = new String[] {
                 KEY_FILTER + "store1/dev"
@@ -274,16 +248,23 @@ public class AppConfigurationPropertySourceFactoryTest {
 
     @Test
     public void multiSourceIsCreated() throws InterruptedException {
+        when(clientFactoryMock.getAvailableClients(Mockito.anyString(), Mockito.eq(true)))
+            .thenReturn(Arrays.asList(replicaClientMock));
+        when(replicaClientMock.listSettings(Mockito.any())).thenReturn(watchKeyListMock)
+            .thenReturn(watchKeyListMock).thenReturn(watchKeyListMock);
+        when(watchKeyListMock.iterator()).thenReturn(Collections.emptyIterator());
         setupMonitoring();
         when(configStoreMock.getFeatureFlags()).thenReturn(featureFlagStoreMock);
 
-        propertySourceFactory = new AppConfigurationPropertySourceFactory(appProperties, clientFactoryMock, keyVaultClientFactory, null);
+        propertySourceFactory = new AppConfigurationPropertySourceFactory(appProperties, clientFactoryMock,
+            keyVaultClientFactory, null);
 
         try (MockedStatic<StateHolder> stateHolderMock = Mockito.mockStatic(StateHolder.class)) {
             stateHolderMock.when(() -> StateHolder.updateState(Mockito.any())).thenReturn(null);
             List<String> profiles = new ArrayList<>();
             profiles.addAll(List.of(PROFILE_NAME_1, PROFILE_NAME_2));
-            List<AppConfigurationPropertySource> sources = propertySourceFactory.build(configStoreMock, profiles, new StateHolder(), true);
+            List<AppConfigurationPropertySource> sources = propertySourceFactory.build(configStoreMock, profiles,
+                new StateHolder(), true);
 
             String[] expectedSourceNames = new String[] {
                 KEY_FILTER + "store1/prod,dev"
@@ -295,18 +276,18 @@ public class AppConfigurationPropertySourceFactoryTest {
 
     @Test
     public void storeCreatedWithFeatureFlags() throws InterruptedException {
+        when(clientFactoryMock.getAvailableClients(Mockito.anyString(), Mockito.eq(true)))
+            .thenReturn(Arrays.asList(replicaClientMock));
         setupMonitoring();
         FeatureFlagStore featureFlagStore = new FeatureFlagStore();
         featureFlagStore.setEnabled(true);
         featureFlagStore.validateAndInit();
 
-        List<ConfigurationSetting> featureList = new ArrayList<>();
         FeatureFlagConfigurationSetting featureFlag = new FeatureFlagConfigurationSetting("Alpha", false);
         featureFlag.setValue("");
-        featureList.add(featureFlag);
 
         when(configStoreMock.getFeatureFlags()).thenReturn(featureFlagStore);
-        when(replicaClientMock.listSettings(Mockito.any())).thenReturn(featureList);
+        when(replicaClientMock.listSettings(Mockito.any())).thenReturn(List.of(featureFlag));
 
         propertySourceFactory = new AppConfigurationPropertySourceFactory(appProperties, clientFactoryMock,
             keyVaultClientFactory, null);
@@ -331,19 +312,19 @@ public class AppConfigurationPropertySourceFactoryTest {
 
     @Test
     public void storeCreatedWithFeatureFlagsRequireAll() throws InterruptedException {
+        when(clientFactoryMock.getAvailableClients(Mockito.anyString(), Mockito.eq(true)))
+            .thenReturn(Arrays.asList(replicaClientMock));
         setupMonitoring();
         FeatureFlagStore featureFlagStore = new FeatureFlagStore();
         featureFlagStore.setEnabled(true);
         featureFlagStore.validateAndInit();
 
-        List<ConfigurationSetting> featureList = new ArrayList<>();
         FeatureFlagConfigurationSetting featureFlag = new FeatureFlagConfigurationSetting("Alpha", true);
         featureFlag.setValue(
             "{\"id\":null,\"description\":null,\"display_name\":null,\"enabled\":true,\"conditions\":{\"requirement_type\":\"All\", \"client_filters\":[{\"name\":\"AlwaysOn\",\"parameters\":{}}]}}");
-        featureList.add(featureFlag);
 
         when(configStoreMock.getFeatureFlags()).thenReturn(featureFlagStore);
-        when(replicaClientMock.listSettings(Mockito.any())).thenReturn(featureList);
+        when(replicaClientMock.listSettings(Mockito.any())).thenReturn(List.of(featureFlag));
         when(replicaClientMock.getTracingInfo()).thenReturn(new TracingInfo(false, false, 0, null));
 
         propertySourceFactory = new AppConfigurationPropertySourceFactory(appProperties, clientFactoryMock,
@@ -372,20 +353,20 @@ public class AppConfigurationPropertySourceFactoryTest {
 
     @Test
     public void storeCreatedWithFeatureFlagsWithMonitoring() throws InterruptedException {
+        when(clientFactoryMock.getAvailableClients(Mockito.anyString(), Mockito.eq(true)))
+            .thenReturn(Arrays.asList(replicaClientMock));
         AppConfigurationStoreMonitoring monitoring = new AppConfigurationStoreMonitoring();
         monitoring.setEnabled(true);
         FeatureFlagStore featureFlagStore = new FeatureFlagStore();
         featureFlagStore.setEnabled(true);
         featureFlagStore.validateAndInit();
 
-        List<ConfigurationSetting> featureList = new ArrayList<>();
         FeatureFlagConfigurationSetting featureFlag = new FeatureFlagConfigurationSetting("Alpha", false);
         featureFlag.setValue("");
-        featureList.add(featureFlag);
 
         when(configStoreMock.getFeatureFlags()).thenReturn(featureFlagStore);
         when(configStoreMock.getMonitoring()).thenReturn(monitoring);
-        when(replicaClientMock.listSettings(Mockito.any())).thenReturn(featureList);
+        when(replicaClientMock.listSettings(Mockito.any())).thenReturn(List.of(featureFlag));
 
         propertySourceFactory = new AppConfigurationPropertySourceFactory(appProperties, clientFactoryMock,
             keyVaultClientFactory, null);
@@ -409,14 +390,21 @@ public class AppConfigurationPropertySourceFactoryTest {
 
     @Test
     public void watchedKeyCheck() throws InterruptedException {
+        when(clientFactoryMock.getAvailableClients(Mockito.anyString(), Mockito.eq(true)))
+            .thenReturn(Arrays.asList(replicaClientMock));
+        when(replicaClientMock.listSettings(Mockito.any())).thenReturn(watchKeyListMock)
+            .thenReturn(watchKeyListMock).thenReturn(watchKeyListMock);
+        when(watchKeyListMock.iterator()).thenReturn(Collections.emptyIterator());
         setupMonitoring();
         when(configStoreMock.getFeatureFlags()).thenReturn(featureFlagStoreMock);
 
-        propertySourceFactory = new AppConfigurationPropertySourceFactory(appProperties, clientFactoryMock, keyVaultClientFactory, null);
+        propertySourceFactory = new AppConfigurationPropertySourceFactory(appProperties, clientFactoryMock,
+            keyVaultClientFactory, null);
 
         try (MockedStatic<StateHolder> stateHolderMock = Mockito.mockStatic(StateHolder.class)) {
             stateHolderMock.when(() -> StateHolder.updateState(Mockito.any())).thenReturn(null);
-            List<AppConfigurationPropertySource> sources = propertySourceFactory.build(configStoreMock, List.of(), new StateHolder(), true);
+            List<AppConfigurationPropertySource> sources = propertySourceFactory.build(configStoreMock, List.of(),
+                new StateHolder(), true);
             // Application name: foo and active profile: dev,prod, should construct below
             // composite Property Source:
             // [/foo_prod/, /foo_dev/, /foo/, /application_prod/, /application_dev/,
@@ -432,46 +420,61 @@ public class AppConfigurationPropertySourceFactoryTest {
     @Test
     public void defaultFailFastThrowException() {
         when(configStoreMock.getFeatureFlags()).thenReturn(featureFlagStoreMock);
+        AppConfigurationStoreMonitoring monitoring = new AppConfigurationStoreMonitoring();
+        monitoring.setEnabled(true);
+        AppConfigurationStoreTrigger trigger = new AppConfigurationStoreTrigger();
+        trigger.setKey("wk1");
+        monitoring.setTriggers(List.of(trigger));
+        when(configStoreMock.getMonitoring()).thenReturn(monitoring);
         when(configStoreMock.isFailFast()).thenReturn(true);
 
         propertySourceFactory = new AppConfigurationPropertySourceFactory(appProperties, clientFactoryMock,
             keyVaultClientFactory, null);
 
-        when(clientFactoryMock.getAvailableClients(Mockito.anyString())).thenReturn(Arrays.asList(replicaClientMock));
+        when(clientFactoryMock.getAvailableClients(Mockito.anyString(), Mockito.eq(true)))
+            .thenReturn(Arrays.asList(replicaClientMock));
         when(replicaClientMock.getWatchKey(Mockito.any(), Mockito.anyString())).thenThrow(new RuntimeException());
         RuntimeException e = assertThrows(RuntimeException.class,
-            () -> propertySourceFactory.build(configStoreMock, null, null, true));
+            () -> propertySourceFactory.build(configStoreMock, List.of(), new StateHolder(), true));
         assertEquals("Failed to generate property sources for " + TEST_STORE_NAME, e.getMessage());
         verify(configStoreMock, times(1)).isFailFast();
     }
 
     @Test
     public void refreshThrowException() throws IllegalArgumentException {
+        when(clientFactoryMock.getAvailableClients(Mockito.anyString(), Mockito.eq(true)))
+            .thenReturn(Arrays.asList(replicaClientMock));
         when(configStoreMock.getFeatureFlags()).thenReturn(featureFlagStoreMock);
         AppConfigurationPropertySourceLocator.STARTUP.set(false);
 
-        propertySourceFactory = new AppConfigurationPropertySourceFactory(appProperties, clientFactoryMock, keyVaultClientFactory, null);
+        propertySourceFactory = new AppConfigurationPropertySourceFactory(appProperties, clientFactoryMock,
+            keyVaultClientFactory, null);
 
         when(replicaClientMock.listSettings(any())).thenThrow(new RuntimeException());
 
         try (MockedStatic<StateHolder> stateHolderMock = Mockito.mockStatic(StateHolder.class)) {
             stateHolderMock.when(() -> StateHolder.getLoadState(Mockito.anyString())).thenReturn(true);
-            RuntimeException e = assertThrows(RuntimeException.class, () -> propertySourceFactory.build(configStoreMock, List.of(), new StateHolder(), false));
+            RuntimeException e = assertThrows(RuntimeException.class,
+                () -> propertySourceFactory.build(configStoreMock, List.of(), new StateHolder(), false));
             assertEquals("Failed to generate property sources for store1", e.getMessage());
         }
     }
 
     @Test
     public void notFailFastShouldPass() throws InterruptedException {
+        when(clientFactoryMock.getAvailableClients(Mockito.anyString(), Mockito.eq(true)))
+            .thenReturn(Arrays.asList(replicaClientMock));
         when(configStoreMock.isFailFast()).thenReturn(false);
-        propertySourceFactory = new AppConfigurationPropertySourceFactory(appProperties, clientFactoryMock, keyVaultClientFactory, null);
+        propertySourceFactory = new AppConfigurationPropertySourceFactory(appProperties, clientFactoryMock,
+            keyVaultClientFactory, null);
 
         when(configStoreMock.isFailFast()).thenReturn(false);
         when(configStoreMock.getEndpoint()).thenReturn(TEST_STORE_NAME);
 
         try (MockedStatic<StateHolder> stateHolderMock = Mockito.mockStatic(StateHolder.class)) {
             stateHolderMock.when(() -> StateHolder.updateState(Mockito.any())).thenReturn(null);
-            List<AppConfigurationPropertySource> sources = propertySourceFactory.build(configStoreMock, List.of(), new StateHolder(), true);
+            List<AppConfigurationPropertySource> sources = propertySourceFactory.build(configStoreMock, List.of(),
+                new StateHolder(), true);
             assertNull(sources);
 
             // Once a store fails it should stop attempting to load
