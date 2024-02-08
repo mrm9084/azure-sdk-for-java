@@ -128,10 +128,25 @@ public class AppConfigurationPropertySourceLocatorTest {
     }
 
     @Test
-    public void multiplePropertySourcesExistForMultiStores() {
+    public void multiplePropertySourcesExistForMultiStores() throws InterruptedException {
         properties = new AppConfigurationProperties();
+        when(emptyEnvironment.getActiveProfiles()).thenReturn(new String[] {});
         TestUtils.addStore(properties, TEST_STORE_NAME_1, TEST_CONN_STRING, KEY_FILTER);
         TestUtils.addStore(properties, TEST_STORE_NAME_2, TEST_CONN_STRING_2, KEY_FILTER);
+
+        MutablePropertySources mutableSources = new MutablePropertySources();
+        mutableSources.addFirst(new PropertySource<String>("refreshArgs") {
+            @Override
+            public Object getProperty(String name) {
+                return null;
+            }
+        });
+
+        when(emptyEnvironment.getPropertySources()).thenReturn(mutableSources);
+        when(propertySourceFactoryMock.build(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any()))
+            .thenReturn(List.of(new AppConfigurationApplicationSettingPropertySource("a", null, keyVaultClientFactory,
+                KEY_FILTER, null))).thenReturn(List.of(new AppConfigurationApplicationSettingPropertySource("b", null, keyVaultClientFactory,
+                    KEY_FILTER, null)));
 
         locator = new AppConfigurationPropertySourceLocator(appProperties,
             keyVaultClientFactory, null, properties.getStores(), replicaLookUpMock, propertySourceFactoryMock);
@@ -142,8 +157,7 @@ public class AppConfigurationPropertySourceLocatorTest {
             assertTrue(source instanceof CompositePropertySource);
 
             Collection<PropertySource<?>> sources = ((CompositePropertySource) source).getPropertySources();
-            String[] expectedSourceNames = new String[] { KEY_FILTER + TEST_STORE_NAME_2 + "/\0",
-                KEY_FILTER + TEST_STORE_NAME_1 + "/\0" };
+            String[] expectedSourceNames = new String[] { "a", "b" };
             assertEquals(2, sources.size());
             assertArrayEquals((Object[]) expectedSourceNames, sources.stream().map(PropertySource::getName).toArray());
         }
@@ -151,9 +165,11 @@ public class AppConfigurationPropertySourceLocatorTest {
 
     @Test
     public void awaitOnError() throws InterruptedException {
-        when(propertySourceFactoryMock.build(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any())).thenThrow(new RuntimeException());
-        List<ConfigStore> configStores = new ArrayList<>();
-        configStores.add(configStoreMockError);
+        when(propertySourceFactoryMock.build(Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any()))
+            .thenReturn(null);
+        when(propertySourceFactoryMock.failedToGeneratePropertySource(Mockito.any(), Mockito.any(), Mockito.any(),
+            Mockito.any())).thenThrow(new RuntimeException());
+        ConfigStore configStore = new ConfigStore();
 
         ConfigurableEnvironment env = Mockito.mock(ConfigurableEnvironment.class);
         MutablePropertySources sources = new MutablePropertySources();
@@ -172,17 +188,17 @@ public class AppConfigurationPropertySourceLocatorTest {
         when(env.getActiveProfiles()).thenReturn(array);
         AppConfigurationKeyValueSelector selectedKeys = new AppConfigurationKeyValueSelector()
             .setKeyFilter("/application/");
-        List<AppConfigurationKeyValueSelector> selects = new ArrayList<>();
-        selects.add(selectedKeys);
-        when(configStoreMockError.getSelects()).thenReturn(selects);
-        when(configStoreMockError.isEnabled()).thenReturn(true);
-        when(configStoreMockError.getEndpoint()).thenReturn("");
+
+        configStore.setSelects(List.of(selectedKeys));
+        configStore.setEnabled(true);
+        configStore.setEndpoint("");
 
         locator = new AppConfigurationPropertySourceLocator(appPropertiesMock, keyVaultClientFactory,
-            null, configStores, replicaLookUpMock, propertySourceFactoryMock);
+            null, List.of(configStore), replicaLookUpMock, propertySourceFactoryMock);
 
         assertThrows(RuntimeException.class, () -> locator.locate(env));
-        verify(appPropertiesMock, times(1)).getPrekillTime();
+        verify(propertySourceFactoryMock, times(1)).failedToGeneratePropertySource(Mockito.any(), Mockito.any(),
+            Mockito.any(), Mockito.any());
     }
 
     @Test
