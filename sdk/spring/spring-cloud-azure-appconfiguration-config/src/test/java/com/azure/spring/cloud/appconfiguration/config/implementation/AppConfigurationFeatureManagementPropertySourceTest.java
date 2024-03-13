@@ -18,11 +18,11 @@ import static com.azure.spring.cloud.appconfiguration.config.implementation.Test
 import static com.azure.spring.cloud.appconfiguration.config.implementation.TestUtils.createItemFeatureFlag;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -47,6 +47,8 @@ import com.azure.spring.cloud.appconfiguration.config.implementation.properties.
 import com.azure.spring.cloud.appconfiguration.config.implementation.properties.FeatureFlagStore;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+
+import reactor.core.publisher.Flux;
 
 public class AppConfigurationFeatureManagementPropertySourceTest {
 
@@ -89,7 +91,7 @@ public class AppConfigurationFeatureManagementPropertySourceTest {
     private FeatureFlagStore featureFlagStore;
 
     @Mock
-    private List<ConfigurationSetting> featureListMock;
+    private ConfigurationSetting configurationMock;
 
     @BeforeAll
     public static void setup() {
@@ -124,39 +126,28 @@ public class AppConfigurationFeatureManagementPropertySourceTest {
 
     @Test
     public void overrideTest() {
-        String[] labels = {"test"};
-        AppConfigurationFeatureManagementPropertySource propertySourceOverride = new AppConfigurationFeatureManagementPropertySource(TEST_STORE_NAME, clientMock, "/test/",
+        String[] labels = { "test" };
+        AppConfigurationFeatureManagementPropertySource propertySourceOverride = new AppConfigurationFeatureManagementPropertySource(
+            TEST_STORE_NAME, clientMock, "/test/",
             labels);
-        when(featureListMock.iterator()).thenReturn(FEATURE_ITEMS.iterator());
-        when(clientMock.listSettings(Mockito.any()))
-            .thenReturn(featureListMock).thenReturn(featureListMock);
-        when(clientMock.getTracingInfo()).thenReturn(new TracingInfo(false, false, 0, Configuration.getGlobalConfiguration()));
+
+        when(clientMock.getTracingInfo())
+            .thenReturn(new TracingInfo(false, false, 0, Configuration.getGlobalConfiguration()));
         featureFlagStore.setEnabled(true);
+        FeatureFlagConfigurationSetting gammaFlag = new FeatureFlagConfigurationSetting("Gamma", false).setClientFilters(List.of());
+
+        when(clientMock.listSettings(Mockito.any()))
+            .thenReturn(Flux.just(gammaFlag));
 
         propertySourceOverride.initProperties(null);
 
-        Map<Integer, FeatureFlagFilter> filters = new HashMap<>();
-        FeatureFlagFilter ffec = new FeatureFlagFilter("TestFilter");
-        filters.put(0, ffec);
-        Feature gamma = new Feature();
-        gamma.setKey("Gamma");
-        filters = new HashMap<>();
-        ffec = new FeatureFlagFilter("TestFilter");
-        Map<String, Object> parameters = new LinkedHashMap<>();
-        parameters.put("key", "value");
-        ffec.setParameters(parameters);
-        filters.put(0, ffec);
-        gamma.setEnabledFor(filters);
-
-        assertEquals(gamma.getKey(),
-            ((Feature) propertySourceOverride.getProperty(FEATURE_MANAGEMENT_KEY + "Gamma")).getKey());
+        assertNotNull(propertySourceOverride.getProperty(FEATURE_MANAGEMENT_KEY + "Gamma"));
+        assertFalse((Boolean) propertySourceOverride.getProperty(FEATURE_MANAGEMENT_KEY + "Gamma"));
     }
-    
+
     @Test
     public void testFeatureFlagCanBeInitedAndQueried() {
-        when(featureListMock.iterator()).thenReturn(FEATURE_ITEMS.iterator());
-        when(clientMock.listSettings(Mockito.any()))
-            .thenReturn(featureListMock).thenReturn(featureListMock);
+        when(clientMock.listSettings(Mockito.any())).thenReturn(Flux.just(FEATURE_ITEMS.get(2)));
         when(clientMock.getTracingInfo()).thenReturn(new TracingInfo(false, false, 0, Configuration.getGlobalConfiguration()));
         featureFlagStore.setEnabled(true);
 
@@ -181,8 +172,7 @@ public class AppConfigurationFeatureManagementPropertySourceTest {
 
     @Test
     public void testFeatureFlagThrowError() {
-        when(featureListMock.iterator()).thenReturn(FEATURE_ITEMS.iterator());
-        when(clientMock.listSettings(Mockito.any())).thenReturn(featureListMock);
+        when(clientMock.listSettings(Mockito.any())).thenReturn(Flux.just(configurationMock));
         when(clientMock.getTracingInfo()).thenReturn(new TracingInfo(false, false, 0, Configuration.getGlobalConfiguration()));
         try {
             propertySource.initProperties(null);
@@ -195,10 +185,8 @@ public class AppConfigurationFeatureManagementPropertySourceTest {
     public void initNullInvalidContentTypeFeatureFlagTest() {
         ArrayList<ConfigurationSetting> items = new ArrayList<>();
         items.add(FEATURE_ITEM_NULL);
-        when(featureListMock.iterator()).thenReturn(Collections.emptyIterator())
-            .thenReturn(items.iterator());
         when(clientMock.listSettings(Mockito.any()))
-            .thenReturn(featureListMock).thenReturn(featureListMock);
+            .thenReturn(Flux.just(configurationMock)).thenReturn(Flux.just(configurationMock));
 
         propertySource.initProperties(null);
 
@@ -210,9 +198,7 @@ public class AppConfigurationFeatureManagementPropertySourceTest {
 
     @Test
     public void testFeatureFlagTargeting() {
-        when(featureListMock.iterator()).thenReturn(FEATURE_ITEMS_TARGETING.iterator());
-        when(clientMock.listSettings(Mockito.any()))
-            .thenReturn(featureListMock).thenReturn(featureListMock);
+        when(clientMock.listSettings(Mockito.any())).thenReturn(Flux.just(FEATURE_ITEMS_TARGETING.get(0)));
         when(clientMock.getTracingInfo()).thenReturn(new TracingInfo(false, false, 0, Configuration.getGlobalConfiguration()));
         featureFlagStore.setEnabled(true);
 

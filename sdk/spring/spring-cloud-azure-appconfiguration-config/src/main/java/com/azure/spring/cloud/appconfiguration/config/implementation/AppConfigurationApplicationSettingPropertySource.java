@@ -72,7 +72,7 @@ class AppConfigurationApplicationSettingPropertySource extends AppConfigurationP
             SettingSelector settingSelector = new SettingSelector().setKeyFilter(keyFilter + "*").setLabelFilter(label);
 
             // * for wildcard match
-            processConfigurationSettings(replicaClient.listSettings(settingSelector), settingSelector.getKeyFilter(),
+            processConfigurationSettings(replicaClient.listSettings(settingSelector).collectList().block(), settingSelector.getKeyFilter(),
                 keyPrefixTrimValues);
         }
     }

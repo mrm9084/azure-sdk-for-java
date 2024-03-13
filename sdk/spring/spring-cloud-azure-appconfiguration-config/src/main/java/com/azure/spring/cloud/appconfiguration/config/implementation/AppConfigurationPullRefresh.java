@@ -71,7 +71,7 @@ public class AppConfigurationPullRefresh implements AppConfigurationRefresh, Env
      * elsewhere this method will return right away as <b>false</b>.
      */
     public Mono<Boolean> refreshConfigurations() {
-        return Mono.just(refreshStores());
+        return refreshStores();
     }
 
     /**
@@ -96,16 +96,21 @@ public class AppConfigurationPullRefresh implements AppConfigurationRefresh, Env
      *
      * @return If a refresh event is called.
      */
-    private boolean refreshStores() {
+    private Mono<Boolean> refreshStores() {
         if (running.compareAndSet(false, true)) {
             BaseAppConfigurationPolicy.setWatchRequests(true);
             try {
-                RefreshEventData eventData = AppConfigurationRefreshUtil.refreshStoresCheck(clientFactory,
+                Mono<RefreshEventData> eventData = AppConfigurationRefreshUtil.refreshStoresCheck(clientFactory,
                     refreshInterval, profiles, defaultMinBackoff);
-                if (eventData.getDoRefresh()) {
-                    publisher.publishEvent(new RefreshEvent(this, eventData, eventData.getMessage()));
-                    return true;
-                }
+                
+                return eventData.map(event -> {
+                    if (event.getDoRefresh()) {
+                        publisher.publishEvent(new RefreshEvent(this, event, event.getMessage()));
+                    }
+                    return event.getDoRefresh();
+                });
+                
+                
             } catch (Exception e) {
                 // The next refresh will happen sooner if refresh interval is expired.
                 StateHolder.getCurrentState().updateNextRefreshTime(refreshInterval, defaultMinBackoff);
@@ -114,7 +119,7 @@ public class AppConfigurationPullRefresh implements AppConfigurationRefresh, Env
                 running.set(false);
             }
         }
-        return false;
+        return Mono.just(false);
     }
 
     @Override

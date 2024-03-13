@@ -9,7 +9,9 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.slf4j.Logger;
@@ -21,7 +23,9 @@ import org.springframework.core.env.Environment;
 import org.springframework.core.env.PropertySource;
 import org.springframework.util.StringUtils;
 
+import com.azure.core.http.MatchConditions;
 import com.azure.data.appconfiguration.models.ConfigurationSetting;
+import com.azure.data.appconfiguration.models.SettingSelector;
 import com.azure.spring.cloud.appconfiguration.config.implementation.properties.AppConfigurationKeyValueSelector;
 import com.azure.spring.cloud.appconfiguration.config.implementation.properties.AppConfigurationProviderProperties;
 import com.azure.spring.cloud.appconfiguration.config.implementation.properties.AppConfigurationStoreMonitoring;
@@ -116,7 +120,7 @@ public final class AppConfigurationPropertySourceLocator implements PropertySour
                     sourceList = new ArrayList<>();
 
                     if (!STARTUP.get() && reloadFailed && !AppConfigurationRefreshUtil
-                        .checkStoreAfterRefreshFailed(client, clientFactory, configStore.getFeatureFlags(), profiles)) {
+                        .checkStoreAfterRefreshFailed(client, clientFactory, configStore.getFeatureFlags())) {
                         // This store doesn't have any changes where to refresh store did. Skipping Checking next.
                         continue;
                     }
@@ -172,8 +176,14 @@ public final class AppConfigurationPropertySourceLocator implements PropertySour
         AppConfigurationStoreMonitoring monitoring = configStore.getMonitoring();
 
         if (configStore.getFeatureFlags().getEnabled()) {
-            List<ConfigurationSetting> watchKeysFeatures = getFeatureFlagWatchKeys(configStore, sources);
-            newState.setStateFeatureFlag(configStore.getEndpoint(), watchKeysFeatures,
+            Map<SettingSelector, MatchConditions> ffMon = new HashMap<>();
+            for (AppConfigurationPropertySource source: sources) {
+                if (source instanceof AppConfigurationFeatureManagementPropertySource) {
+                    AppConfigurationFeatureManagementPropertySource ffSource = (AppConfigurationFeatureManagementPropertySource) source;
+                    ffMon.putAll(ffSource.getMonitoring());
+                }
+            }
+            newState.setStateFeatureFlag(configStore.getEndpoint(), ffMon,
                 monitoring.getFeatureFlagRefreshInterval());
         }
 
@@ -192,7 +202,7 @@ public final class AppConfigurationPropertySourceLocator implements PropertySour
         List<AppConfigurationStoreTrigger> triggers) {
         List<ConfigurationSetting> watchKeysSettings = new ArrayList<>();
         for (AppConfigurationStoreTrigger trigger : triggers) {
-            ConfigurationSetting watchKey = client.getWatchKey(trigger.getKey(), trigger.getLabel());
+            ConfigurationSetting watchKey = client.getWatchKey(trigger.getKey(), trigger.getLabel()).block();
             if (watchKey != null) {
                 watchKeysSettings.add(watchKey);
             } else {
@@ -200,20 +210,6 @@ public final class AppConfigurationPropertySourceLocator implements PropertySour
             }
         }
         return watchKeysSettings;
-    }
-
-    private List<ConfigurationSetting> getFeatureFlagWatchKeys(ConfigStore configStore,
-        List<AppConfigurationPropertySource> sources) {
-        List<ConfigurationSetting> watchKeysFeatures = new ArrayList<>();
-        if (configStore.getFeatureFlags().getEnabled()) {
-            for (AppConfigurationPropertySource propertySource : sources) {
-                if (propertySource instanceof AppConfigurationFeatureManagementPropertySource) {
-                    watchKeysFeatures.addAll(
-                        ((AppConfigurationFeatureManagementPropertySource) propertySource).getFeatureFlagSettings());
-                }
-            }
-        }
-        return watchKeysFeatures;
     }
 
     private StateHolder failedToGeneratePropertySource(ConfigStore configStore, StateHolder newState, Exception e) {

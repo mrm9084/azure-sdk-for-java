@@ -21,7 +21,6 @@ import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
@@ -36,6 +35,8 @@ import com.azure.data.appconfiguration.models.ConfigurationSetting;
 import com.azure.spring.cloud.appconfiguration.config.implementation.properties.AppConfigurationProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+
+import reactor.core.publisher.Flux;
 
 public class AppConfigurationApplicationSettingPropertySourceTest {
 
@@ -68,9 +69,9 @@ public class AppConfigurationApplicationSettingPropertySourceTest {
 
     @Mock
     private AppConfigurationKeyVaultClientFactory keyVaultClientFactoryMock;
-
+    
     @Mock
-    private List<ConfigurationSetting> configurationListMock;
+    private ConfigurationSetting configurationMock;
 
     @BeforeAll
     public static void setup() {
@@ -101,9 +102,7 @@ public class AppConfigurationApplicationSettingPropertySourceTest {
 
     @Test
     public void testPropCanBeInitAndQueried() throws IOException {
-        when(configurationListMock.iterator()).thenReturn(testItems.iterator());
-        when(clientMock.listSettings(Mockito.any())).thenReturn(configurationListMock)
-            .thenReturn(configurationListMock);
+        when(clientMock.listSettings(Mockito.any())).thenReturn(Flux.just(ITEM_1, ITEM_2, ITEM_3));
 
         propertySource.initProperties(null);
 
@@ -124,10 +123,7 @@ public class AppConfigurationApplicationSettingPropertySourceTest {
             EMPTY_CONTENT_TYPE);
         List<ConfigurationSetting> settings = new ArrayList<>();
         settings.add(slashedProp);
-        when(configurationListMock.iterator()).thenReturn(settings.iterator())
-            .thenReturn(Collections.emptyIterator());
-        when(clientMock.listSettings(Mockito.any())).thenReturn(configurationListMock)
-            .thenReturn(configurationListMock);
+        when(clientMock.listSettings(Mockito.any())).thenReturn(Flux.just(slashedProp));
 
         propertySource.initProperties(null);
 
@@ -144,9 +140,7 @@ public class AppConfigurationApplicationSettingPropertySourceTest {
     public void initNullValidContentTypeTest() throws IOException {
         List<ConfigurationSetting> items = new ArrayList<>();
         items.add(ITEM_NULL);
-        when(configurationListMock.iterator()).thenReturn(items.iterator())
-            .thenReturn(Collections.emptyIterator());
-        when(clientMock.listSettings(Mockito.any())).thenReturn(configurationListMock);
+        when(clientMock.listSettings(Mockito.any())).thenReturn(Flux.just(ITEM_NULL));
 
         propertySource.initProperties(null);
 

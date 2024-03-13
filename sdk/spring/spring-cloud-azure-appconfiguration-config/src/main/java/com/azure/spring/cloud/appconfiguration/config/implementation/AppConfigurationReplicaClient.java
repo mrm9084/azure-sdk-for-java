@@ -4,19 +4,23 @@ package com.azure.spring.cloud.appconfiguration.config.implementation;
 
 import java.io.UncheckedIOException;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.util.StringUtils;
 
 import com.azure.core.exception.HttpResponseException;
-import com.azure.core.http.rest.PagedIterable;
-import com.azure.data.appconfiguration.ConfigurationClient;
+import com.azure.core.http.HttpHeaderName;
+import com.azure.core.http.MatchConditions;
+import com.azure.core.http.rest.PagedResponse;
+import com.azure.data.appconfiguration.ConfigurationAsyncClient;
 import com.azure.data.appconfiguration.models.ConfigurationSetting;
 import com.azure.data.appconfiguration.models.ConfigurationSnapshot;
 import com.azure.data.appconfiguration.models.SettingSelector;
 import com.azure.data.appconfiguration.models.SnapshotComposition;
 import com.azure.spring.cloud.appconfiguration.config.implementation.http.policy.TracingInfo;
+
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 /**
  * Client for connecting to App Configuration when multiple replicas are in use.
@@ -25,7 +29,7 @@ class AppConfigurationReplicaClient {
 
     private final String endpoint;
 
-    private final ConfigurationClient client;
+    private final ConfigurationAsyncClient client;
 
     private Instant backoffEndTime;
 
@@ -38,7 +42,7 @@ class AppConfigurationReplicaClient {
      * @param endpoint client endpoint
      * @param client Configuration Client to App Configuration store
      */
-    AppConfigurationReplicaClient(String endpoint, ConfigurationClient client, TracingInfo tracingInfo) {
+    AppConfigurationReplicaClient(String endpoint, ConfigurationAsyncClient client, TracingInfo tracingInfo) {
         this.endpoint = endpoint;
         this.client = client;
         this.backoffEndTime = Instant.now().minusMillis(1);
@@ -84,13 +88,10 @@ class AppConfigurationReplicaClient {
      * @param label String value of the watch key, use \0 for null.
      * @return The first returned configuration.
      */
-    ConfigurationSetting getWatchKey(String key, String label)
+    Mono<ConfigurationSetting> getWatchKey(String key, String label)
         throws HttpResponseException {
         try {
-            ConfigurationSetting watchKey = NormalizeNull
-                .normalizeNullLabel(client.getConfigurationSetting(key, label));
-            this.failedAttempts = 0;
-            return watchKey;
+            return client.getConfigurationSetting(key, label).map(setting -> processConfigurationSetting(setting));
         } catch (HttpResponseException e) {
             if (e.getResponse() != null) {
                 int statusCode = e.getResponse().getStatusCode();
@@ -111,14 +112,11 @@ class AppConfigurationReplicaClient {
      * @param settingSelector Information on which setting to pull. i.e. number of results, key value...
      * @return List of Configuration Settings.
      */
-    List<ConfigurationSetting> listSettings(SettingSelector settingSelector)
+    Flux<ConfigurationSetting> listSettings(SettingSelector settingSelector)
         throws HttpResponseException {
-        List<ConfigurationSetting> configurationSettings = new ArrayList<>();
         try {
-            PagedIterable<ConfigurationSetting> settings = client.listConfigurationSettings(settingSelector);
-            this.failedAttempts = 0;
-            settings.forEach(setting -> configurationSettings.add(NormalizeNull.normalizeNullLabel(setting)));
-            return configurationSettings;
+            return client.listConfigurationSettings(settingSelector)
+                .map(setting -> processConfigurationSetting(setting));
         } catch (HttpResponseException e) {
             if (e.getResponse() != null) {
                 int statusCode = e.getResponse().getStatusCode();
@@ -134,17 +132,14 @@ class AppConfigurationReplicaClient {
     }
 
     List<ConfigurationSetting> listSettingSnapshot(String snapshotName) {
-        List<ConfigurationSetting> configurationSettings = new ArrayList<>();
         try {
-            ConfigurationSnapshot snapshot = client.getSnapshot(snapshotName);
+            ConfigurationSnapshot snapshot = client.getSnapshot(snapshotName).block();
             if (!SnapshotComposition.KEY.equals(snapshot.getSnapshotComposition())) {
                 throw new IllegalArgumentException("Snapshot " + snapshotName + " needs to be of type Key.");
             }
 
-            PagedIterable<ConfigurationSetting> settings = client.listConfigurationSettingsForSnapshot(snapshotName);
-            this.failedAttempts = 0;
-            settings.forEach(setting -> configurationSettings.add(NormalizeNull.normalizeNullLabel(setting)));
-            return configurationSettings;
+            return client.listConfigurationSettingsForSnapshot(snapshotName)
+                .map(setting -> processConfigurationSetting(setting)).collectList().block();
         } catch (HttpResponseException e) {
             if (e.getResponse() != null) {
                 int statusCode = e.getResponse().getStatusCode();
@@ -157,6 +152,17 @@ class AppConfigurationReplicaClient {
         } catch (UncheckedIOException e) {
             throw new AppConfigurationStatusException(e.getMessage(), null, null);
         }
+    }
+    
+    Flux<MatchConditions> getPagedEtags(SettingSelector settingSelector) {
+        return client.listConfigurationSettings(settingSelector).byPage().map(pagedResponse -> new MatchConditions().setIfNoneMatch(
+                            pagedResponse.getHeaders().getValue(HttpHeaderName.ETAG)));
+    }
+    
+    Flux<PagedResponse<ConfigurationSetting>> checkWatchKeys(SettingSelector settingSelector) {
+        return client.listConfigurationSettings(settingSelector).byPage().filter(pagedResponse -> {
+           return pagedResponse.getStatusCode() != 304;
+        });
     }
 
     /**
@@ -171,6 +177,11 @@ class AppConfigurationReplicaClient {
 
     TracingInfo getTracingInfo() {
         return tracingInfo;
+    }
+
+    ConfigurationSetting processConfigurationSetting(ConfigurationSetting setting) {
+        this.failedAttempts = 0;
+        return NormalizeNull.normalizeNullLabel(setting);
     }
 
 }

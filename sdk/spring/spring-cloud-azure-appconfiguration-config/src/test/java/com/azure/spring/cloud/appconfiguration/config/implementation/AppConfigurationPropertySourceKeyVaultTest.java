@@ -26,7 +26,6 @@ import static org.mockito.Mockito.when;
 import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
@@ -43,6 +42,8 @@ import com.azure.security.keyvault.secrets.SecretClientBuilder;
 import com.azure.security.keyvault.secrets.models.KeyVaultSecret;
 import com.azure.spring.cloud.appconfiguration.config.implementation.properties.AppConfigurationProperties;
 import com.azure.spring.cloud.appconfiguration.config.implementation.stores.AppConfigurationSecretClientManager;
+
+import reactor.core.publisher.Flux;
 
 public class AppConfigurationPropertySourceKeyVaultTest {
 
@@ -83,9 +84,9 @@ public class AppConfigurationPropertySourceKeyVaultTest {
 
     @Mock
     private SecretAsyncClient clientMock;
-
+    
     @Mock
-    private List<ConfigurationSetting> keyVaultSecretListMock;
+    private ConfigurationSetting configurationMock;
 
     @BeforeEach
     public void init() {
@@ -98,7 +99,7 @@ public class AppConfigurationPropertySourceKeyVaultTest {
         String[] labelFilter = { "\0" };
         propertySource = new AppConfigurationApplicationSettingPropertySource(TEST_STORE_NAME, replicaClientMock,
             keyVaultClientFactory, KEY_FILTER, labelFilter);
-
+        
         TEST_ITEMS.add(ITEM_1);
         TEST_ITEMS.add(ITEM_2);
         TEST_ITEMS.add(ITEM_3);
@@ -112,10 +113,8 @@ public class AppConfigurationPropertySourceKeyVaultTest {
     @Test
     public void testKeyVaultTest() {
         TEST_ITEMS.add(KEY_VAULT_ITEM);
-        when(keyVaultSecretListMock.iterator()).thenReturn(TEST_ITEMS.iterator())
-            .thenReturn(Collections.emptyIterator());
-        when(replicaClientMock.listSettings(Mockito.any())).thenReturn(keyVaultSecretListMock)
-            .thenReturn(keyVaultSecretListMock);
+        when(replicaClientMock.listSettings(Mockito.any())).thenReturn(Flux.just(ITEM_1, ITEM_2, ITEM_3, KEY_VAULT_ITEM));
+
 
         Mockito.when(builderMock.buildAsyncClient()).thenReturn(clientMock);
 

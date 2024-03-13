@@ -4,12 +4,17 @@ package com.azure.spring.cloud.appconfiguration.config.implementation;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
+import com.azure.core.http.MatchConditions;
 import com.azure.data.appconfiguration.models.ConfigurationSetting;
+import com.azure.data.appconfiguration.models.SettingSelector;
 
 class State {
 
     private final List<ConfigurationSetting> watchKeys;
+
+    private final Map<SettingSelector, MatchConditions> watchKeysff;
 
     private final Instant nextRefreshCheck;
 
@@ -21,6 +26,16 @@ class State {
 
     State(List<ConfigurationSetting> watchKeys, int refreshInterval, String originEndpoint) {
         this.watchKeys = watchKeys;
+        this.watchKeysff = null;
+        this.refreshInterval = refreshInterval;
+        nextRefreshCheck = Instant.now().plusSeconds(refreshInterval);
+        this.originEndpoint = originEndpoint;
+        this.refreshAttempt = 1;
+    }
+
+    State(Map<SettingSelector, MatchConditions> watchKeysff, int refreshInterval, String originEndpoint) {
+        this.watchKeys = null;
+        this.watchKeysff = watchKeysff;
         this.refreshInterval = refreshInterval;
         nextRefreshCheck = Instant.now().plusSeconds(refreshInterval);
         this.originEndpoint = originEndpoint;
@@ -29,6 +44,7 @@ class State {
 
     State(State oldState, Instant newRefresh) {
         this.watchKeys = oldState.getWatchKeys();
+        this.watchKeysff = oldState.getWatchKeysff();
         this.refreshInterval = oldState.getRefreshInterval();
         this.nextRefreshCheck = newRefresh;
         this.originEndpoint = oldState.getOriginEndpoint();
@@ -40,6 +56,13 @@ class State {
      */
     public List<ConfigurationSetting> getWatchKeys() {
         return watchKeys;
+    }
+
+    /**
+     * @return the watchKeysff
+     */
+    public Map<SettingSelector, MatchConditions> getWatchKeysff() {
+        return watchKeysff;
     }
 
     /**

@@ -21,7 +21,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
@@ -56,6 +55,7 @@ import com.azure.spring.cloud.appconfiguration.config.implementation.properties.
 import com.azure.spring.cloud.appconfiguration.config.implementation.properties.FeatureFlagStore;
 
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 @TestMethodOrder(MethodOrderer.MethodName.class)
 public class AppConfigurationPropertySourceLocatorTest {
@@ -117,7 +117,7 @@ public class AppConfigurationPropertySourceLocatorTest {
     private AppConfigurationProperties properties;
 
     @Mock
-    private List<ConfigurationSetting> watchKeyListMock;
+    private ConfigurationSetting configurationMock;
 
     private AppConfigurationPropertySourceLocator locator;
 
@@ -172,12 +172,10 @@ public class AppConfigurationPropertySourceLocatorTest {
         when(iteratorMock.hasNext()).thenReturn(true).thenReturn(false);
         when(iteratorMock.next()).thenReturn(pagedMock);
 
-        when(watchKeyListMock.iterator()).thenReturn(Collections.emptyIterator());
-
         when(clientFactoryMock.getAvailableClients(Mockito.anyString(), Mockito.eq(true)))
             .thenReturn(Arrays.asList(replicaClientMock));
-        when(replicaClientMock.listSettings(Mockito.any())).thenReturn(watchKeyListMock)
-            .thenReturn(watchKeyListMock).thenReturn(watchKeyListMock);
+        when(replicaClientMock.listSettings(Mockito.any())).thenReturn(Flux.empty())
+            .thenReturn(Flux.empty()).thenReturn(Flux.empty());
         when(replicaClientMock.getEndpoint()).thenReturn(TEST_STORE_NAME);
 
         appProperties = new AppConfigurationProviderProperties();
@@ -239,7 +237,7 @@ public class AppConfigurationPropertySourceLocatorTest {
         when(configStoreMock.getMonitoring()).thenReturn(monitoring);
         when(configStoreMock.getFeatureFlags()).thenReturn(featureFlagStoreMock);
         when(replicaClientMock.getWatchKey(Mockito.eq(watchKey), Mockito.anyString()))
-            .thenReturn(TestUtils.createItem("", watchKey, watchValue, watchLabel, ""));
+            .thenReturn(Mono.just(TestUtils.createItem("", watchKey, watchValue, watchLabel, "")));
 
         locator = new AppConfigurationPropertySourceLocator(appProperties, clientFactoryMock, keyVaultClientFactory,
             null, stores);
@@ -277,7 +275,7 @@ public class AppConfigurationPropertySourceLocatorTest {
         when(configStoreMock.getMonitoring()).thenReturn(monitoring);
         when(configStoreMock.getFeatureFlags()).thenReturn(featureFlagStoreMock);
         when(replicaClientMock.getWatchKey(Mockito.eq(watchKey), Mockito.anyString()))
-            .thenReturn(null);
+            .thenReturn(Mono.justOrEmpty(null));
 
         locator = new AppConfigurationPropertySourceLocator(appProperties, clientFactoryMock, keyVaultClientFactory,
             null, stores);
@@ -349,13 +347,12 @@ public class AppConfigurationPropertySourceLocatorTest {
         featureFlagStore.setEnabled(true);
         featureFlagStore.validateAndInit();
 
-        List<ConfigurationSetting> featureList = new ArrayList<>();
         FeatureFlagConfigurationSetting featureFlag = new FeatureFlagConfigurationSetting("Alpha", false);
         featureFlag.setValue("");
-        featureList.add(featureFlag);
 
         when(configStoreMock.getFeatureFlags()).thenReturn(featureFlagStore);
-        when(replicaClientMock.listSettings(Mockito.any())).thenReturn(featureList);
+        when(replicaClientMock.listSettings(Mockito.any())).thenReturn(Flux.just(featureFlag));
+        when(replicaClientMock.getPagedEtags(Mockito.any())).thenReturn(Flux.empty());
 
         locator = new AppConfigurationPropertySourceLocator(appProperties, clientFactoryMock, keyVaultClientFactory,
             null, stores);
@@ -387,12 +384,14 @@ public class AppConfigurationPropertySourceLocatorTest {
 
         List<ConfigurationSetting> featureList = new ArrayList<>();
         FeatureFlagConfigurationSetting featureFlag = new FeatureFlagConfigurationSetting("Alpha", true);
-        featureFlag.setValue("{\"id\":null,\"description\":null,\"display_name\":null,\"enabled\":true,\"conditions\":{\"requirement_type\":\"All\", \"client_filters\":[{\"name\":\"AlwaysOn\",\"parameters\":{}}]}}");
+        featureFlag.setValue(
+            "{\"id\":null,\"description\":null,\"display_name\":null,\"enabled\":true,\"conditions\":{\"requirement_type\":\"All\", \"client_filters\":[{\"name\":\"AlwaysOn\",\"parameters\":{}}]}}");
         featureList.add(featureFlag);
 
         when(configStoreMock.getFeatureFlags()).thenReturn(featureFlagStore);
-        when(replicaClientMock.listSettings(Mockito.any())).thenReturn(featureList);
+        when(replicaClientMock.listSettings(Mockito.any())).thenReturn(Flux.just(featureFlag));
         when(replicaClientMock.getTracingInfo()).thenReturn(new TracingInfo(false, false, 0, null));
+        when(replicaClientMock.getPagedEtags(Mockito.any())).thenReturn(Flux.empty());
 
         locator = new AppConfigurationPropertySourceLocator(appProperties, clientFactoryMock, keyVaultClientFactory,
             null, stores);
@@ -428,14 +427,13 @@ public class AppConfigurationPropertySourceLocatorTest {
         featureFlagStore.setEnabled(true);
         featureFlagStore.validateAndInit();
 
-        List<ConfigurationSetting> featureList = new ArrayList<>();
         FeatureFlagConfigurationSetting featureFlag = new FeatureFlagConfigurationSetting("Alpha", false);
         featureFlag.setValue("");
-        featureList.add(featureFlag);
 
         when(configStoreMock.getFeatureFlags()).thenReturn(featureFlagStore);
         when(configStoreMock.getMonitoring()).thenReturn(monitoring);
-        when(replicaClientMock.listSettings(Mockito.any())).thenReturn(featureList);
+        when(replicaClientMock.listSettings(Mockito.any())).thenReturn(Flux.just(featureFlag));
+        when(replicaClientMock.getPagedEtags(Mockito.any())).thenReturn(Flux.empty());
 
         locator = new AppConfigurationPropertySourceLocator(appProperties, clientFactoryMock, keyVaultClientFactory,
             null, stores);

@@ -15,6 +15,7 @@ import java.net.UnknownHostException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,9 +25,11 @@ import org.mockito.MockitoAnnotations;
 
 import com.azure.core.exception.HttpResponseException;
 import com.azure.core.http.HttpResponse;
-import com.azure.core.http.rest.PagedIterable;
+import com.azure.core.http.rest.PagedFlux;
+import com.azure.core.http.rest.PagedResponse;
 import com.azure.core.util.Configuration;
-import com.azure.data.appconfiguration.ConfigurationClient;
+import com.azure.core.util.paging.PageRetriever;
+import com.azure.data.appconfiguration.ConfigurationAsyncClient;
 import com.azure.data.appconfiguration.models.ConfigurationSetting;
 import com.azure.data.appconfiguration.models.ConfigurationSnapshot;
 import com.azure.data.appconfiguration.models.SettingSelector;
@@ -34,10 +37,13 @@ import com.azure.data.appconfiguration.models.SnapshotComposition;
 import com.azure.identity.CredentialUnavailableException;
 import com.azure.spring.cloud.appconfiguration.config.implementation.http.policy.TracingInfo;
 
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
 public class AppConfigurationReplicaClientTest {
 
     @Mock
-    private ConfigurationClient clientMock;
+    private ConfigurationAsyncClient clientMock;
 
     @Mock
     private HttpResponseException exceptionMock;
@@ -46,7 +52,19 @@ public class AppConfigurationReplicaClientTest {
     private HttpResponse responseMock;
 
     @Mock
-    private PagedIterable<ConfigurationSetting> settingsMock;
+    private PagedFlux<ConfigurationSetting> settingsMock;
+    
+    @Mock
+    private Supplier<PageRetriever<String,PagedResponse<ConfigurationSetting>>> supplierMock;
+    
+    @Mock
+    private PageRetriever<String, PagedResponse<ConfigurationSetting>> valueMock;
+    
+    @Mock
+    private Flux<PagedResponse<ConfigurationSetting>> pageResponseMock;
+    
+    @Mock
+    private Flux<Object> fluxObjectMock;
 
     private final String endpoint = "clientTest.azconfig.io";
 
@@ -60,11 +78,11 @@ public class AppConfigurationReplicaClientTest {
         AppConfigurationReplicaClient client = new AppConfigurationReplicaClient(endpoint, clientMock,
             new TracingInfo(false, false, 0, Configuration.getGlobalConfiguration()));
 
-        ConfigurationSetting watchKey = new ConfigurationSetting().setKey("watch").setLabel("\0");
+        Mono<ConfigurationSetting> watchKey = Mono.just(new ConfigurationSetting().setKey("watch").setLabel("\0"));
 
         when(clientMock.getConfigurationSetting(Mockito.anyString(), Mockito.anyString())).thenReturn(watchKey);
 
-        assertEquals(watchKey, client.getWatchKey("watch", "\0"));
+        assertEquals(watchKey.block(), client.getWatchKey("watch", "\0").block());
 
         when(clientMock.getConfigurationSetting(Mockito.anyString(), Mockito.anyString()))
             .thenThrow(exceptionMock);
@@ -93,9 +111,9 @@ public class AppConfigurationReplicaClientTest {
         List<ConfigurationSetting> configurations = new ArrayList<>();
 
         when(clientMock.listConfigurationSettings(Mockito.any())).thenReturn(settingsMock);
-        when(settingsMock.iterator()).thenReturn(configurations.iterator());
+        when(settingsMock.map(Mockito.any())).thenReturn(Flux.just());
 
-        assertEquals(configurations, client.listSettings(new SettingSelector()));
+        assertEquals(configurations, client.listSettings(new SettingSelector()).collectList().block());
 
         when(clientMock.listConfigurationSettings(Mockito.any())).thenThrow(exceptionMock);
         when(exceptionMock.getResponse()).thenReturn(responseMock);
@@ -126,11 +144,9 @@ public class AppConfigurationReplicaClientTest {
         AppConfigurationReplicaClient client = new AppConfigurationReplicaClient(endpoint, clientMock,
             new TracingInfo(false, false, 0, Configuration.getGlobalConfiguration()));
 
-        List<ConfigurationSetting> configurations = new ArrayList<>();
-
         when(clientMock.listConfigurationSettings(Mockito.any()))
             .thenThrow(new CredentialUnavailableException("No Credential"));
-        when(settingsMock.iterator()).thenReturn(configurations.iterator());
+        when(settingsMock.map(Mockito.any())).thenReturn(Flux.just());
 
         assertThrows(CredentialUnavailableException.class, () -> client.listSettings(new SettingSelector()));
     }
@@ -140,11 +156,9 @@ public class AppConfigurationReplicaClientTest {
         AppConfigurationReplicaClient client = new AppConfigurationReplicaClient(endpoint, clientMock,
             new TracingInfo(false, false, 0, Configuration.getGlobalConfiguration()));
 
-        List<ConfigurationSetting> configurations = new ArrayList<>();
-
         when(clientMock.getConfigurationSetting(Mockito.anyString(), Mockito.anyString()))
             .thenThrow(new CredentialUnavailableException("No Credential"));
-        when(settingsMock.iterator()).thenReturn(configurations.iterator());
+        when(settingsMock.map(Mockito.any())).thenReturn(Flux.just());
 
         assertThrows(CredentialUnavailableException.class, () -> client.getWatchKey("key", "label"));
     }
@@ -169,10 +183,9 @@ public class AppConfigurationReplicaClientTest {
         assertTrue(client.getBackoffEndTime().isBefore(Instant.now()));
         assertEquals(2, client.getFailedAttempts());
 
-        // Success in a list request results in a reset of failed attemtps
-        when(clientMock.listConfigurationSettings(Mockito.any(SettingSelector.class))).thenReturn(settingsMock);
-
-        client.listSettings(new SettingSelector());
+        // Success in a list request results in a reset of failed attempts
+        client.processConfigurationSetting(new ConfigurationSetting());
+        
         assertTrue(client.getBackoffEndTime().isBefore(Instant.now()));
         assertEquals(0, client.getFailedAttempts());
     }
@@ -186,9 +199,9 @@ public class AppConfigurationReplicaClientTest {
         ConfigurationSnapshot snapshot = new ConfigurationSnapshot(null);
         snapshot.setSnapshotComposition(SnapshotComposition.KEY);
 
-        when(clientMock.getSnapshot(Mockito.any())).thenReturn(snapshot);
+        when(clientMock.getSnapshot(Mockito.any())).thenReturn(Mono.just(snapshot));
         when(clientMock.listConfigurationSettingsForSnapshot(Mockito.any())).thenReturn(settingsMock);
-        when(settingsMock.iterator()).thenReturn(configurations.iterator());
+        when(settingsMock.map(Mockito.any())).thenReturn(Flux.just());
 
         assertEquals(configurations, client.listSettingSnapshot("SnapshotName"));
 
@@ -218,7 +231,7 @@ public class AppConfigurationReplicaClientTest {
         ConfigurationSnapshot snapshot = new ConfigurationSnapshot(null);
         snapshot.setSnapshotComposition(SnapshotComposition.KEY_LABEL);
 
-        when(clientMock.getSnapshot(Mockito.any())).thenReturn(snapshot);
+        when(clientMock.getSnapshot(Mockito.any())).thenReturn(Mono.just(snapshot));
 
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> client.listSettingSnapshot("SnapshotName"));
         assertEquals("Snapshot SnapshotName needs to be of type Key.", e.getMessage());

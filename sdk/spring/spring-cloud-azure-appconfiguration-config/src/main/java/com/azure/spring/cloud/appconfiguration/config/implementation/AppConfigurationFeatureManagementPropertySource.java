@@ -21,12 +21,14 @@ import static java.util.stream.Collectors.toMap;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.IntStream;
 
 import org.springframework.util.StringUtils;
 
+import com.azure.core.http.MatchConditions;
 import com.azure.data.appconfiguration.models.ConfigurationSetting;
 import com.azure.data.appconfiguration.models.FeatureFlagConfigurationSetting;
 import com.azure.data.appconfiguration.models.FeatureFlagFilter;
@@ -93,7 +95,7 @@ class AppConfigurationFeatureManagementPropertySource extends AppConfigurationPr
         for (String label : labels) {
             settingSelector.setLabelFilter(label);
 
-            List<ConfigurationSetting> features = replicaClient.listSettings(settingSelector);
+            List<ConfigurationSetting> features = replicaClient.listSettings(settingSelector).collectList().block();
 
             // Reading In Features
             for (ConfigurationSetting setting : features) {
@@ -104,7 +106,28 @@ class AppConfigurationFeatureManagementPropertySource extends AppConfigurationPr
             }
         }
     }
-    
+
+    Map<SettingSelector, MatchConditions> getMonitoring() {
+        Map<SettingSelector, MatchConditions> monitoring = new HashMap<>();
+        SettingSelector settingSelector = new SettingSelector();
+
+        String keyFilter = SELECT_ALL_FEATURE_FLAGS;
+
+        if (StringUtils.hasText(this.keyFilter)) {
+            keyFilter = FEATURE_FLAG_PREFIX + this.keyFilter;
+        }
+
+        settingSelector.setKeyFilter(keyFilter);
+
+        List<String> labels = Arrays.asList(labelFilter);
+        Collections.reverse(labels);
+
+        replicaClient.getPagedEtags(settingSelector).toStream()
+            .forEach(pagedResponse -> monitoring.put(settingSelector, pagedResponse));
+
+        return monitoring;
+    }
+
     List<ConfigurationSetting> getFeatureFlagSettings() {
         return featureConfigurationSettings;
     }
@@ -198,7 +221,7 @@ class AppConfigurationFeatureManagementPropertySource extends AppConfigurationPr
     private static String getFeatureSimpleName(ConfigurationSetting setting) {
         return setting.getKey().trim().substring(FEATURE_FLAG_PREFIX.length());
     }
-    
+
     @SuppressWarnings("null")
     private static Map<String, Object> mapValuesByIndex(List<Object> users) {
         return IntStream.range(0, users.size()).boxed().collect(toMap(String::valueOf, users::get));
@@ -210,8 +233,9 @@ class AppConfigurationFeatureManagementPropertySource extends AppConfigurationPr
     }
 
     private static List<Object> convertToListOrEmptyList(Map<String, Object> parameters, String key) {
-        List<Object> listObjects =
-            CASE_INSENSITIVE_MAPPER.convertValue(parameters.get(key), new TypeReference<List<Object>>() {});
+        List<Object> listObjects = CASE_INSENSITIVE_MAPPER.convertValue(parameters.get(key),
+            new TypeReference<List<Object>>() {
+            });
         return listObjects == null ? emptyList() : listObjects;
     }
 }
