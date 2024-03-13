@@ -113,7 +113,7 @@ public class AppConfigurationRefreshUtilTest {
             stateHolderMock.when(() -> StateHolder.getLoadState(endpoint)).thenReturn(false);
 
             assertFalse(
-                AppConfigurationRefreshUtil.checkStoreAfterRefreshFailed(clientMock, clientFactoryMock, featureStore));
+                AppConfigurationRefreshUtil.checkStoreAfterRefreshFailed(clientMock, clientFactoryMock, featureStore).block());
         }
     }
 
@@ -132,7 +132,7 @@ public class AppConfigurationRefreshUtilTest {
             stateHolderMock.when(() -> StateHolder.getState(endpoint)).thenReturn(newState);
 
             assertFalse(
-                AppConfigurationRefreshUtil.checkStoreAfterRefreshFailed(clientMock, clientFactoryMock, featureStore));
+                AppConfigurationRefreshUtil.checkStoreAfterRefreshFailed(clientMock, clientFactoryMock, featureStore).block());
 
         }
     }
@@ -164,7 +164,7 @@ public class AppConfigurationRefreshUtilTest {
             stateHolderMock.when(() -> StateHolder.getStateFeatureFlag(endpoint)).thenReturn(newState);
 
             assertFalse(
-                AppConfigurationRefreshUtil.checkStoreAfterRefreshFailed(clientMock, clientFactoryMock, featureStore));
+                AppConfigurationRefreshUtil.checkStoreAfterRefreshFailed(clientMock, clientFactoryMock, featureStore).block());
 
         }
     }
@@ -180,7 +180,7 @@ public class AppConfigurationRefreshUtilTest {
             stateHolderMock.when(() -> StateHolder.getLoadStateFeatureFlag(endpoint)).thenReturn(false);
 
             assertFalse(
-                AppConfigurationRefreshUtil.checkStoreAfterRefreshFailed(clientMock, clientFactoryMock, featureStore));
+                AppConfigurationRefreshUtil.checkStoreAfterRefreshFailed(clientMock, clientFactoryMock, featureStore).block());
 
         }
     }
@@ -196,7 +196,7 @@ public class AppConfigurationRefreshUtilTest {
             stateHolderMock.when(() -> StateHolder.getLoadStateFeatureFlag(endpoint)).thenReturn(false);
 
             assertFalse(
-                AppConfigurationRefreshUtil.checkStoreAfterRefreshFailed(clientMock, clientFactoryMock, featureStore));
+                AppConfigurationRefreshUtil.checkStoreAfterRefreshFailed(clientMock, clientFactoryMock, featureStore).block());
 
         }
     }
@@ -223,7 +223,7 @@ public class AppConfigurationRefreshUtilTest {
             stateHolderMock.when(() -> StateHolder.getStateFeatureFlag(endpoint)).thenReturn(newState);
 
             assertFalse(
-                AppConfigurationRefreshUtil.checkStoreAfterRefreshFailed(clientMock, clientFactoryMock, featureStore));
+                AppConfigurationRefreshUtil.checkStoreAfterRefreshFailed(clientMock, clientFactoryMock, featureStore).block());
 
         }
 
@@ -251,7 +251,7 @@ public class AppConfigurationRefreshUtilTest {
             stateHolderMock.when(() -> StateHolder.getStateFeatureFlag(endpoint)).thenReturn(newState);
 
             assertTrue(
-                AppConfigurationRefreshUtil.checkStoreAfterRefreshFailed(clientMock, clientFactoryMock, featureStore));
+                AppConfigurationRefreshUtil.checkStoreAfterRefreshFailed(clientMock, clientFactoryMock, featureStore).block());
 
         }
     }
@@ -277,7 +277,7 @@ public class AppConfigurationRefreshUtilTest {
             stateHolderMock.when(() -> StateHolder.getStateFeatureFlag(endpoint)).thenReturn(newState);
 
             assertTrue(
-                AppConfigurationRefreshUtil.checkStoreAfterRefreshFailed(clientMock, clientFactoryMock, featureStore));
+                AppConfigurationRefreshUtil.checkStoreAfterRefreshFailed(clientMock, clientFactoryMock, featureStore).block());
 
         }
     }
@@ -302,7 +302,7 @@ public class AppConfigurationRefreshUtilTest {
             stateHolderMock.when(() -> StateHolder.getStateFeatureFlag(endpoint)).thenReturn(newState);
 
             assertTrue(
-                AppConfigurationRefreshUtil.checkStoreAfterRefreshFailed(clientMock, clientFactoryMock, featureStore));
+                AppConfigurationRefreshUtil.checkStoreAfterRefreshFailed(clientMock, clientFactoryMock, featureStore).block());
 
         }
     }

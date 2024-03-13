@@ -120,7 +120,7 @@ public final class AppConfigurationPropertySourceLocator implements PropertySour
                     sourceList = new ArrayList<>();
 
                     if (!STARTUP.get() && reloadFailed && !AppConfigurationRefreshUtil
-                        .checkStoreAfterRefreshFailed(client, clientFactory, configStore.getFeatureFlags())) {
+                        .checkStoreAfterRefreshFailed(client, clientFactory, configStore.getFeatureFlags()).block()) {
                         // This store doesn't have any changes where to refresh store did. Skipping Checking next.
                         continue;
                     }
@@ -177,7 +177,7 @@ public final class AppConfigurationPropertySourceLocator implements PropertySour
 
         if (configStore.getFeatureFlags().getEnabled()) {
             Map<SettingSelector, MatchConditions> ffMon = new HashMap<>();
-            for (AppConfigurationPropertySource source: sources) {
+            for (AppConfigurationPropertySource source : sources) {
                 if (source instanceof AppConfigurationFeatureManagementPropertySource) {
                     AppConfigurationFeatureManagementPropertySource ffSource = (AppConfigurationFeatureManagementPropertySource) source;
                     ffMon.putAll(ffSource.getMonitoring());

@@ -101,9 +101,7 @@ class AppConfigurationRefreshUtil {
             }
         } catch (Exception e) {
             // The next refresh will happen sooner if refresh interval is expired.
-            StateHolder current = StateHolder.getCurrentState();
-            
-            current.updateNextRefreshTime(refreshInterval, defaultMinBackoff);
+            StateHolder.getCurrentState().updateNextRefreshTime(refreshInterval, defaultMinBackoff);
             throw e;
         }
 
@@ -116,36 +114,24 @@ class AppConfigurationRefreshUtil {
         });
 
         return Flux.concat(configEventData, ffEventData).reduce((a, b) -> {
-            if (!a.getDoRefresh() && !b.getDoRefresh()) {
+            if (a.getDoRefresh() && b.getDoRefresh()) {
+                return new RefreshEventData().setFullMessage(a.getMessage() + "\n" + b.getMessage());
+            }
+            if (!b.getDoRefresh()) {
                 return a;
             }
-            if (a.getDoRefresh() && !b.getDoRefresh()) {
-                return a;
-            }
-            if (b.getDoRefresh() && !a.getDoRefresh()) {
-                return b;
-            }
-
-            return new RefreshEventData().setFullMessage(a.getMessage() + "\n" + b.getMessage());
+            return b;
         });
     }
 
-    static boolean checkStoreAfterRefreshFailed(AppConfigurationReplicaClient client,
+    static Mono<Boolean> checkStoreAfterRefreshFailed(AppConfigurationReplicaClient client,
         AppConfigurationReplicaClientFactory clientFactory, FeatureFlagStore featureStore) {
-        List<RefreshEventData> configResult = refreshStoreCheck(client,
-            clientFactory.findOriginForEndpoint(client.getEndpoint())).collectList().block();
-        for (RefreshEventData eventData : configResult) {
-            if (eventData.getDoRefresh()) {
-                return true;
-            }
-        }
-        List<Boolean> featureFlagResults = refreshStoreFeatureFlagCheck(featureStore, client).collectList().block();
-        for (Boolean featureFlagResult : featureFlagResults) {
-            if (featureFlagResult) {
-                return true;
-            }
-        }
-        return false;
+
+        
+        Flux<Boolean> configResult = refreshStoreCheck(client,
+            clientFactory.findOriginForEndpoint(client.getEndpoint())).map(eventData -> eventData.getDoRefresh());
+        Flux<Boolean> featureFlagResults = refreshStoreFeatureFlagCheck(featureStore, client);
+        return Flux.merge(configResult, featureFlagResults).reduce((a, b) -> a || b);
     }
 
     /**
