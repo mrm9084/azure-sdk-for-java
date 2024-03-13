@@ -49,7 +49,7 @@ public class AppConfigurationRefreshUtilTest {
 
     @Mock
     private AppConfigurationReplicaClientFactory clientFactoryMock;
-    
+
     @Mock
     private ConfigurationSetting configurationMock;
 
@@ -61,9 +61,12 @@ public class AppConfigurationRefreshUtilTest {
 
     @Mock
     private ConnectionManager connectionManagerMock;
-    
+
     @Mock
     private PagedResponse<ConfigurationSetting> pagedResponseMock;
+
+    @Mock
+    private StateHolder stateHolderMockReturn;
 
     private ConfigStore configStore;
 
@@ -104,7 +107,8 @@ public class AppConfigurationRefreshUtilTest {
         endpoint = testInfo.getDisplayName() + ".azconfig.io";
         when(clientMock.getEndpoint()).thenReturn(endpoint);
 
-        when(clientMock.getWatchKey(Mockito.eq(KEY_FILTER), Mockito.eq(EMPTY_LABEL))).thenReturn(Mono.just(watchKeys.get(0)));
+        when(clientMock.getWatchKey(Mockito.eq(KEY_FILTER), Mockito.eq(EMPTY_LABEL)))
+            .thenReturn(Mono.just(watchKeys.get(0)));
         try (MockedStatic<StateHolder> stateHolderMock = Mockito.mockStatic(StateHolder.class)) {
             stateHolderMock.when(() -> StateHolder.getLoadState(endpoint)).thenReturn(false);
 
@@ -121,7 +125,8 @@ public class AppConfigurationRefreshUtilTest {
         State newState = new State(watchKeys, Math.toIntExact(Duration.ofMinutes(10).getSeconds()), endpoint);
 
         // Config Store doesn't return a watch key change.
-        when(clientMock.getWatchKey(Mockito.eq(KEY_FILTER), Mockito.eq(EMPTY_LABEL))).thenReturn(Mono.just(watchKeys.get(0)));
+        when(clientMock.getWatchKey(Mockito.eq(KEY_FILTER), Mockito.eq(EMPTY_LABEL)))
+            .thenReturn(Mono.just(watchKeys.get(0)));
         try (MockedStatic<StateHolder> stateHolderMock = Mockito.mockStatic(StateHolder.class)) {
             stateHolderMock.when(() -> StateHolder.getLoadState(endpoint)).thenReturn(true);
             stateHolderMock.when(() -> StateHolder.getState(endpoint)).thenReturn(newState);
@@ -140,10 +145,10 @@ public class AppConfigurationRefreshUtilTest {
 
         ConfigurationSetting updatedWatchKey = new ConfigurationSetting().setKey(KEY_FILTER).setLabel(EMPTY_LABEL)
             .setETag("updated");
-        
+
         Map<SettingSelector, MatchConditions> originalFFETags = new HashMap<>();
-        originalFFETags.put(new SettingSelector().setKeyFilter(FEATURE_FLAG_PREFIX + "*").setLabelFilter(EMPTY_LABEL), new MatchConditions());
-        
+        originalFFETags.put(new SettingSelector().setKeyFilter(FEATURE_FLAG_PREFIX + "*").setLabelFilter(EMPTY_LABEL),
+            new MatchConditions());
 
         State newState = new State(originalFFETags, Math.toIntExact(Duration.ofMinutes(10).getSeconds()), endpoint);
 
@@ -151,7 +156,8 @@ public class AppConfigurationRefreshUtilTest {
         listedKeys.add(watchKeysFeatureFlags.get(0));
 
         // Config Store does return a watch key change.
-        when(clientMock.getWatchKey(Mockito.eq(KEY_FILTER), Mockito.eq(EMPTY_LABEL))).thenReturn(Mono.just(updatedWatchKey));
+        when(clientMock.getWatchKey(Mockito.eq(KEY_FILTER), Mockito.eq(EMPTY_LABEL)))
+            .thenReturn(Mono.just(updatedWatchKey));
         when(clientMock.listSettings(Mockito.any(SettingSelector.class))).thenReturn(Flux.just(configurationMock));
         try (MockedStatic<StateHolder> stateHolderMock = Mockito.mockStatic(StateHolder.class)) {
             stateHolderMock.when(() -> StateHolder.getLoadStateFeatureFlag(endpoint)).thenReturn(true);
@@ -201,9 +207,10 @@ public class AppConfigurationRefreshUtilTest {
         when(clientMock.getEndpoint()).thenReturn(endpoint);
         when(clientOriginMock.getEndpoint()).thenReturn(endpoint);
         when(clientMock.checkWatchKeys(Mockito.any())).thenReturn(Flux.just());
-        
+
         Map<SettingSelector, MatchConditions> originalFFETags = new HashMap<>();
-        originalFFETags.put(new SettingSelector().setKeyFilter(FEATURE_FLAG_PREFIX + "*").setLabelFilter(EMPTY_LABEL), new MatchConditions());
+        originalFFETags.put(new SettingSelector().setKeyFilter(FEATURE_FLAG_PREFIX + "*").setLabelFilter(EMPTY_LABEL),
+            new MatchConditions());
 
         State newState = new State(originalFFETags, Math.toIntExact(Duration.ofMinutes(10).getSeconds()),
             endpoint);
@@ -226,9 +233,10 @@ public class AppConfigurationRefreshUtilTest {
     public void refreshWithoutTimeFeatureFlagNoWatchKeyReturned(TestInfo testInfo) {
         endpoint = testInfo.getDisplayName() + ".azconfig.io";
         when(clientMock.getEndpoint()).thenReturn(endpoint);
-        
+
         Map<SettingSelector, MatchConditions> originalFFETags = new HashMap<>();
-        originalFFETags.put(new SettingSelector().setKeyFilter(FEATURE_FLAG_PREFIX + "*").setLabelFilter(EMPTY_LABEL), new MatchConditions());
+        originalFFETags.put(new SettingSelector().setKeyFilter(FEATURE_FLAG_PREFIX + "*").setLabelFilter(EMPTY_LABEL),
+            new MatchConditions());
 
         State newState = new State(originalFFETags, Math.toIntExact(Duration.ofMinutes(10).getSeconds()),
             endpoint);
@@ -237,7 +245,7 @@ public class AppConfigurationRefreshUtilTest {
         when(clientMock.listSettings(Mockito.any(SettingSelector.class))).thenReturn(Flux.just(configurationMock));
         when(clientOriginMock.getEndpoint()).thenReturn(endpoint);
         when(clientMock.checkWatchKeys(Mockito.any())).thenReturn(Flux.just(pagedResponseMock));
-        
+
         try (MockedStatic<StateHolder> stateHolderMock = Mockito.mockStatic(StateHolder.class)) {
             stateHolderMock.when(() -> StateHolder.getLoadStateFeatureFlag(endpoint)).thenReturn(true);
             stateHolderMock.when(() -> StateHolder.getStateFeatureFlag(endpoint)).thenReturn(newState);
@@ -256,9 +264,10 @@ public class AppConfigurationRefreshUtilTest {
 
         // Config Store doesn't return a value, Feature Flag was deleted
         when(clientMock.listSettings(Mockito.any(SettingSelector.class))).thenReturn(Flux.just(configurationMock));
-        
+
         Map<SettingSelector, MatchConditions> originalFFETags = new HashMap<>();
-        originalFFETags.put(new SettingSelector().setKeyFilter(FEATURE_FLAG_PREFIX + "*").setLabelFilter(EMPTY_LABEL), new MatchConditions());
+        originalFFETags.put(new SettingSelector().setKeyFilter(FEATURE_FLAG_PREFIX + "*").setLabelFilter(EMPTY_LABEL),
+            new MatchConditions());
 
         State newState = new State(originalFFETags, Math.toIntExact(Duration.ofMinutes(10).getSeconds()),
             endpoint);
@@ -280,8 +289,9 @@ public class AppConfigurationRefreshUtilTest {
         when(clientMock.checkWatchKeys(Mockito.any())).thenReturn(Flux.just(pagedResponseMock));
 
         Map<SettingSelector, MatchConditions> originalFFETags = new HashMap<>();
-        originalFFETags.put(new SettingSelector().setKeyFilter(FEATURE_FLAG_PREFIX + "*").setLabelFilter(EMPTY_LABEL), new MatchConditions());
-        
+        originalFFETags.put(new SettingSelector().setKeyFilter(FEATURE_FLAG_PREFIX + "*").setLabelFilter(EMPTY_LABEL),
+            new MatchConditions());
+
         State newState = new State(originalFFETags, Math.toIntExact(Duration.ofMinutes(10).getSeconds()),
             endpoint);
 
@@ -394,7 +404,8 @@ public class AppConfigurationRefreshUtilTest {
     public void refreshStoresCheckSettingsTestFailedRequest(TestInfo testInfo) {
         endpoint = testInfo.getDisplayName() + ".azconfig.io";
         when(clientMock.getEndpoint()).thenReturn(endpoint);
-        when(clientOriginMock.getWatchKey(Mockito.any(), Mockito.any())).thenReturn(Mono.just(generateWatchKeys().get(0)));
+        when(clientOriginMock.getWatchKey(Mockito.any(), Mockito.any()))
+            .thenThrow(new AppConfigurationStatusException(null, null, null));
 
         clients.add(clientOriginMock);
 
@@ -413,14 +424,13 @@ public class AppConfigurationRefreshUtilTest {
         try (MockedStatic<StateHolder> stateHolderMock = Mockito.mockStatic(StateHolder.class)) {
             stateHolderMock.when(() -> StateHolder.getLoadState(endpoint)).thenReturn(true);
             stateHolderMock.when(() -> StateHolder.getState(endpoint)).thenReturn(newState);
-            StateHolder updatedStateHolder = new StateHolder();
-            stateHolderMock.when(() -> StateHolder.getCurrentState()).thenReturn(updatedStateHolder);
+            stateHolderMock.when(() -> StateHolder.getCurrentState()).thenReturn(stateHolderMockReturn);
 
             eventData = AppConfigurationRefreshUtil.refreshStoresCheck(clientFactoryMock, Duration.ofMinutes(10),
                 new ArrayList<>(), (long) 60);
-            
+
             RefreshEventData myEvent = eventData.block();
-            
+
             assertFalse(myEvent.getDoRefresh());
             verify(clientFactoryMock, times(1)).setCurrentConfigStoreClient(Mockito.eq(endpoint), Mockito.eq(endpoint));
             verify(clientOriginMock, times(1)).getWatchKey(Mockito.anyString(), Mockito.anyString());
@@ -444,8 +454,7 @@ public class AppConfigurationRefreshUtilTest {
 
         // Refresh Time, but no change
         when(clientFactoryMock.getAvailableClients(Mockito.eq(endpoint))).thenReturn(clients);
-        when(clientOriginMock.getWatchKey(Mockito.anyString(), Mockito.anyString()))
-            .thenReturn(Mono.just(generateWatchKeys().get(0)));
+        when(clientOriginMock.getWatchKey(Mockito.anyString(), Mockito.anyString())).thenReturn(Mono.empty());
 
         State newState = new State(generateWatchKeys(), Math.toIntExact(Duration.ofMinutes(-1).getSeconds()), endpoint);
 
@@ -552,9 +561,10 @@ public class AppConfigurationRefreshUtilTest {
         when(clientFactoryMock.getConnections()).thenReturn(connections);
 
         when(clientFactoryMock.getAvailableClients(Mockito.eq(endpoint))).thenReturn(clients);
-        
+
         Map<SettingSelector, MatchConditions> originalFFETags = new HashMap<>();
-        originalFFETags.put(new SettingSelector().setKeyFilter(FEATURE_FLAG_PREFIX + "*").setLabelFilter(EMPTY_LABEL), new MatchConditions());
+        originalFFETags.put(new SettingSelector().setKeyFilter(FEATURE_FLAG_PREFIX + "*").setLabelFilter(EMPTY_LABEL),
+            new MatchConditions());
 
         State newState = new State(originalFFETags, Math.toIntExact(Duration.ofMinutes(10).getSeconds()),
             endpoint);
@@ -599,9 +609,10 @@ public class AppConfigurationRefreshUtilTest {
         when(clientFactoryMock.getAvailableClients(Mockito.eq(endpoint))).thenReturn(clients);
         when(clientOriginMock.listSettings(Mockito.any())).thenReturn(Flux.just(configurationMock));
         when(clientOriginMock.checkWatchKeys(Mockito.any())).thenReturn(Flux.empty());
-        
+
         Map<SettingSelector, MatchConditions> originalFFETags = new HashMap<>();
-        originalFFETags.put(new SettingSelector().setKeyFilter(FEATURE_FLAG_PREFIX + "*").setLabelFilter(EMPTY_LABEL), new MatchConditions());
+        originalFFETags.put(new SettingSelector().setKeyFilter(FEATURE_FLAG_PREFIX + "*").setLabelFilter(EMPTY_LABEL),
+            new MatchConditions());
 
         State newState = new State(originalFFETags, Math.toIntExact(Duration.ofMinutes(-1).getSeconds()),
             endpoint);
@@ -648,9 +659,10 @@ public class AppConfigurationRefreshUtilTest {
         when(clientOriginMock.listSettings(Mockito.any())).thenReturn(Flux.just(configurationMock));
         when(clientOriginMock.getEndpoint()).thenReturn(endpoint);
         when(clientOriginMock.checkWatchKeys(Mockito.any())).thenReturn(Flux.just(pagedResponseMock));
-        
+
         Map<SettingSelector, MatchConditions> originalFFETags = new HashMap<>();
-        originalFFETags.put(new SettingSelector().setKeyFilter(FEATURE_FLAG_PREFIX + "*").setLabelFilter(EMPTY_LABEL), new MatchConditions());
+        originalFFETags.put(new SettingSelector().setKeyFilter(FEATURE_FLAG_PREFIX + "*").setLabelFilter(EMPTY_LABEL),
+            new MatchConditions());
 
         State newState = new State(originalFFETags, Math.toIntExact(Duration.ofMinutes(-1).getSeconds()),
             endpoint);
