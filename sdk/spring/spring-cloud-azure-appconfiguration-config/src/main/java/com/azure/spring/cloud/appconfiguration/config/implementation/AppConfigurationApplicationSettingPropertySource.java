@@ -26,6 +26,8 @@ import com.azure.data.appconfiguration.models.SettingSelector;
 import com.azure.security.keyvault.secrets.models.KeyVaultSecret;
 import com.fasterxml.jackson.core.JsonProcessingException;
 
+import reactor.core.Disposable;
+
 /**
  * Azure App Configuration PropertySource unique per Store Label(Profile) combo.
  *
@@ -72,39 +74,39 @@ class AppConfigurationApplicationSettingPropertySource extends AppConfigurationP
             SettingSelector settingSelector = new SettingSelector().setKeyFilter(keyFilter + "*").setLabelFilter(label);
 
             // * for wildcard match
-            processConfigurationSettings(replicaClient.listSettings(settingSelector).collectList().block(), settingSelector.getKeyFilter(),
-                keyPrefixTrimValues);
+            Disposable done = replicaClient.listSettings(settingSelector)
+                .subscribe(configuration -> processConfigurationSettings(configuration, settingSelector.getKeyFilter(),
+                    keyPrefixTrimValues));
+            
         }
     }
 
-    protected void processConfigurationSettings(List<ConfigurationSetting> settings, String keyFilter,
-        List<String> keyPrefixTrimValues)
-        throws JsonProcessingException {
-        for (ConfigurationSetting setting : settings) {
-            if (keyPrefixTrimValues == null && StringUtils.hasText(keyFilter)) {
-                keyPrefixTrimValues = new ArrayList<>();
-                keyPrefixTrimValues.add(keyFilter.substring(0, keyFilter.length() - 1));
-            }
-            String key = trimKey(setting.getKey(), keyPrefixTrimValues);
-
-            if (setting instanceof SecretReferenceConfigurationSetting) {
-                handleKeyVaultReference(key, (SecretReferenceConfigurationSetting) setting);
-            } else if (setting instanceof FeatureFlagConfigurationSetting
-                && FEATURE_FLAG_CONTENT_TYPE.equals(setting.getContentType())) {
-                handleFeatureFlag(key, (FeatureFlagConfigurationSetting) setting, keyPrefixTrimValues);
-            } else if (StringUtils.hasText(setting.getContentType())
-                && JsonConfigurationParser.isJsonContentType(setting.getContentType())) {
-                handleJson(setting, keyPrefixTrimValues);
-            } else {
-                properties.put(key, setting.getValue());
-            }
+    protected void processConfigurationSettings(ConfigurationSetting setting, String keyFilter,
+        List<String> keyPrefixTrimValues) {
+        if (keyPrefixTrimValues == null && StringUtils.hasText(keyFilter)) {
+            keyPrefixTrimValues = new ArrayList<>();
+            keyPrefixTrimValues.add(keyFilter.substring(0, keyFilter.length() - 1));
         }
+        String key = trimKey(setting.getKey(), keyPrefixTrimValues);
+
+        if (setting instanceof SecretReferenceConfigurationSetting) {
+            handleKeyVaultReference(key, (SecretReferenceConfigurationSetting) setting);
+        } else if (setting instanceof FeatureFlagConfigurationSetting
+            && FEATURE_FLAG_CONTENT_TYPE.equals(setting.getContentType())) {
+            handleFeatureFlag(key, (FeatureFlagConfigurationSetting) setting, keyPrefixTrimValues);
+        } else if (StringUtils.hasText(setting.getContentType())
+            && JsonConfigurationParser.isJsonContentType(setting.getContentType())) {
+            handleJson(setting, keyPrefixTrimValues);
+        } else {
+            properties.put(key, setting.getValue());
+        }
+
     }
-    
+
     /**
      * Given a Setting's Key Vault Reference stored in the Settings value, it will get its entry in Key Vault.
      *
-     * @param key Application Setting name 
+     * @param key Application Setting name
      * @param secretReference {"uri": "&lt;your-vault-url&gt;/secret/&lt;secret&gt;/&lt;version&gt;"}
      * @return Key Vault Secret Value
      */
@@ -131,20 +133,21 @@ class AppConfigurationApplicationSettingPropertySource extends AppConfigurationP
         }
     }
 
-    void handleFeatureFlag(String key, FeatureFlagConfigurationSetting setting, List<String> trimStrings)
-        throws JsonProcessingException {
+    void handleFeatureFlag(String key, FeatureFlagConfigurationSetting setting, List<String> trimStrings) {
         handleJson(setting, trimStrings);
     }
 
-    void handleJson(ConfigurationSetting setting, List<String> keyPrefixTrimValues)
-        throws JsonProcessingException {
-        Map<String, Object> jsonSettings = JsonConfigurationParser.parseJsonSetting(setting);
-        for (Entry<String, Object> jsonSetting : jsonSettings.entrySet()) {
-            String key = trimKey(jsonSetting.getKey(), keyPrefixTrimValues);
-            properties.put(key, jsonSetting.getValue());
+    void handleJson(ConfigurationSetting setting, List<String> keyPrefixTrimValues) {
+        try {
+            Map<String, Object> jsonSettings = JsonConfigurationParser.parseJsonSetting(setting);
+            for (Entry<String, Object> jsonSetting : jsonSettings.entrySet()) {
+                String key = trimKey(jsonSetting.getKey(), keyPrefixTrimValues);
+                properties.put(key, jsonSetting.getValue());
+            }
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
         }
     }
-
 
     protected String trimKey(String key, List<String> trimStrings) {
         key = key.trim();

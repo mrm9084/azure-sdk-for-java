@@ -19,16 +19,15 @@ import static com.azure.spring.cloud.appconfiguration.config.implementation.AppC
 import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.toMap;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.IntStream;
 
 import org.springframework.util.StringUtils;
 
-import com.azure.core.http.MatchConditions;
 import com.azure.data.appconfiguration.models.ConfigurationSetting;
 import com.azure.data.appconfiguration.models.FeatureFlagConfigurationSetting;
 import com.azure.data.appconfiguration.models.FeatureFlagFilter;
@@ -41,6 +40,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+
+import reactor.core.Disposable;
 
 /**
  * Azure App Configuration PropertySource unique per Store Label(Profile) combo.
@@ -95,20 +96,30 @@ class AppConfigurationFeatureManagementPropertySource extends AppConfigurationPr
         for (String label : labels) {
             settingSelector.setLabelFilter(label);
 
-            List<ConfigurationSetting> features = replicaClient.listSettings(settingSelector).collectList().block();
-
-            // Reading In Features
-            for (ConfigurationSetting setting : features) {
+            Disposable done = replicaClient.listSettings(settingSelector).subscribe(setting -> {
                 if (setting instanceof FeatureFlagConfigurationSetting
                     && FEATURE_FLAG_CONTENT_TYPE.equals(setting.getContentType())) {
                     processFeatureFlag(null, (FeatureFlagConfigurationSetting) setting, null);
                 }
+            });
+            
+            int count = 0;
+            
+            while(!done.isDisposed()) {
+                try {
+                    Thread.sleep(1);
+                    count++;
+                    if (count >= 10000) {
+                        throw new RuntimeException();
+                    }
+                } catch (InterruptedException e) {
+                }
             }
+            System.out.println("Done");
         }
     }
 
-    Map<SettingSelector, MatchConditions> getMonitoring() {
-        Map<SettingSelector, MatchConditions> monitoring = new HashMap<>();
+    List<FeatureFlagWatch> getMonitoring() {
         SettingSelector settingSelector = new SettingSelector();
 
         String keyFilter = SELECT_ALL_FEATURE_FLAGS;
@@ -121,11 +132,15 @@ class AppConfigurationFeatureManagementPropertySource extends AppConfigurationPr
 
         List<String> labels = Arrays.asList(labelFilter);
         Collections.reverse(labels);
+        
+        List<FeatureFlagWatch> matchedConditions = new ArrayList<>();
+        
+        for (String label: labels) {
+            settingSelector.setLabelFilter(label);
+            matchedConditions.add(new FeatureFlagWatch(settingSelector, replicaClient.getPagedEtags(settingSelector)));
+        }
 
-        replicaClient.getPagedEtags(settingSelector).toStream()
-            .forEach(pagedResponse -> monitoring.put(settingSelector, pagedResponse));
-
-        return monitoring;
+        return matchedConditions;
     }
 
     List<ConfigurationSetting> getFeatureFlagSettings() {

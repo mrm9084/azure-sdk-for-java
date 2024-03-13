@@ -4,17 +4,14 @@ package com.azure.spring.cloud.appconfiguration.config.implementation;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 
-import com.azure.core.http.MatchConditions;
 import com.azure.data.appconfiguration.models.ConfigurationSetting;
-import com.azure.data.appconfiguration.models.SettingSelector;
 
 class State {
 
     private final List<ConfigurationSetting> watchKeys;
 
-    private final Map<SettingSelector, MatchConditions> watchKeysff;
+    private final List<FeatureFlagWatch> watchKeysff;
 
     private final Instant nextRefreshCheck;
 
@@ -33,7 +30,7 @@ class State {
         this.refreshAttempt = 1;
     }
 
-    State(Map<SettingSelector, MatchConditions> watchKeysff, int refreshInterval, String originEndpoint) {
+    State(int refreshInterval, String originEndpoint, List<FeatureFlagWatch> watchKeysff) {
         this.watchKeys = null;
         this.watchKeysff = watchKeysff;
         this.refreshInterval = refreshInterval;
@@ -61,7 +58,7 @@ class State {
     /**
      * @return the watchKeysff
      */
-    public Map<SettingSelector, MatchConditions> getWatchKeysff() {
+    public List<FeatureFlagWatch> getWatchKeysff() {
         return watchKeysff;
     }
 

@@ -11,10 +11,8 @@ import java.util.Map.Entry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.azure.core.http.MatchConditions;
 import com.azure.core.http.rest.PagedResponse;
 import com.azure.data.appconfiguration.models.ConfigurationSetting;
-import com.azure.data.appconfiguration.models.SettingSelector;
 import com.azure.spring.cloud.appconfiguration.config.implementation.http.policy.BaseAppConfigurationPolicy;
 import com.azure.spring.cloud.appconfiguration.config.implementation.properties.AppConfigurationStoreMonitoring;
 import com.azure.spring.cloud.appconfiguration.config.implementation.properties.FeatureFlagStore;
@@ -115,6 +113,11 @@ class AppConfigurationRefreshUtil {
 
         return Flux.concat(configEventData, ffEventData).reduce((a, b) -> {
             if (a.getDoRefresh() && b.getDoRefresh()) {
+                if (a.getMessage().equals(b.getMessage())) {
+                    // Stops feature flag message printing multiple times
+                    return a;
+                }
+
                 return new RefreshEventData().setFullMessage(a.getMessage() + "\n" + b.getMessage());
             }
             if (!b.getDoRefresh()) {
@@ -127,7 +130,6 @@ class AppConfigurationRefreshUtil {
     static Mono<Boolean> checkStoreAfterRefreshFailed(AppConfigurationReplicaClient client,
         AppConfigurationReplicaClientFactory clientFactory, FeatureFlagStore featureStore) {
 
-        
         Flux<Boolean> configResult = refreshStoreCheck(client,
             clientFactory.findOriginForEndpoint(client.getEndpoint())).map(eventData -> eventData.getDoRefresh());
         Flux<Boolean> featureFlagResults = refreshStoreFeatureFlagCheck(featureStore, client);
@@ -226,14 +228,14 @@ class AppConfigurationRefreshUtil {
 
             List<Flux<PagedResponse<ConfigurationSetting>>> changes = new ArrayList<>();
 
-            for (Entry<SettingSelector, MatchConditions> entry : state.getWatchKeysff().entrySet()) {
-                changes.add(client.checkWatchKeys(entry.getKey().setMatchConditions(List.of(entry.getValue()))));
+            for (FeatureFlagWatch entry : state.getWatchKeysff()) {
+                changes
+                    .add(client.checkWatchKeys(entry.getSettingSelector().setMatchConditions(entry.getConditions())));
             }
 
             StateHolder.getCurrentState().updateStateRefresh(state, refreshInterval);
             return Flux.concat(changes);
         }
-        StateHolder.getCurrentState().updateStateRefresh(state, refreshInterval);
         return Flux.empty();
     }
 
@@ -244,8 +246,8 @@ class AppConfigurationRefreshUtil {
 
         List<Flux<PagedResponse<ConfigurationSetting>>> changes = new ArrayList<>();
 
-        for (Entry<SettingSelector, MatchConditions> entry : state.getWatchKeysff().entrySet()) {
-            changes.add(client.checkWatchKeys(entry.getKey().setMatchConditions(List.of(entry.getValue()))));
+        for (FeatureFlagWatch entry : state.getWatchKeysff()) {
+            changes.add(client.checkWatchKeys(entry.getSettingSelector().setMatchConditions(entry.getConditions())));
         }
 
         return Flux.concat(changes);

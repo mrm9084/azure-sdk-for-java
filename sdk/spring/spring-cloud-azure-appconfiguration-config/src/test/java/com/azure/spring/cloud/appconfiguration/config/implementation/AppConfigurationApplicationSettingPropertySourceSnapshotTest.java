@@ -25,7 +25,6 @@ import static org.mockito.Mockito.when;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
@@ -86,9 +85,6 @@ public class AppConfigurationApplicationSettingPropertySourceSnapshotTest {
     @Mock
     private AppConfigurationKeyVaultClientFactory keyVaultClientFactoryMock;
 
-    @Mock
-    private List<ConfigurationSetting> configurationListMock;
-
     @BeforeAll
     public static void setup() {
         TestUtils.addStore(TEST_PROPS, TEST_STORE_NAME, TEST_CONN_STRING, KEY_FILTER);
@@ -120,9 +116,7 @@ public class AppConfigurationApplicationSettingPropertySourceSnapshotTest {
 
     @Test
     public void testPropCanBeInitAndQueried() throws IOException {
-        when(configurationListMock.iterator()).thenReturn(testItems.iterator());
-        when(clientMock.listSettingSnapshot(Mockito.any())).thenReturn(configurationListMock)
-            .thenReturn(configurationListMock);
+        when(clientMock.listSettingSnapshot(Mockito.any())).thenReturn(testItems);
         when(clientMock.getTracingInfo())
             .thenReturn(new TracingInfo(false, false, 0, Configuration.getGlobalConfiguration()));
 
@@ -151,9 +145,7 @@ public class AppConfigurationApplicationSettingPropertySourceSnapshotTest {
             createItem(KEY_FILTER, TEST_SLASH_KEY, TEST_SLASH_VALUE, null, EMPTY_CONTENT_TYPE);
         List<ConfigurationSetting> settings = new ArrayList<>();
         settings.add(slashedProp);
-        when(configurationListMock.iterator()).thenReturn(settings.iterator()).thenReturn(Collections.emptyIterator());
-        when(clientMock.listSettingSnapshot(Mockito.any())).thenReturn(configurationListMock)
-            .thenReturn(configurationListMock);
+        when(clientMock.listSettingSnapshot(Mockito.any())).thenReturn(settings);
 
         propertySource.initProperties(TRIM);
 
@@ -170,8 +162,7 @@ public class AppConfigurationApplicationSettingPropertySourceSnapshotTest {
     public void initNullValidContentTypeTest() throws IOException {
         List<ConfigurationSetting> items = new ArrayList<>();
         items.add(ITEM_NULL);
-        when(configurationListMock.iterator()).thenReturn(items.iterator()).thenReturn(Collections.emptyIterator());
-        when(clientMock.listSettingSnapshot(Mockito.any())).thenReturn(configurationListMock);
+        when(clientMock.listSettingSnapshot(Mockito.any())).thenReturn(items);
 
         propertySource.initProperties(TRIM);
 

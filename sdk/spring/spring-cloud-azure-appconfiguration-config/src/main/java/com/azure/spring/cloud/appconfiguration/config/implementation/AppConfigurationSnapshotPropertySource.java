@@ -40,16 +40,18 @@ final class AppConfigurationSnapshotPropertySource extends AppConfigurationAppli
      * @throws JsonProcessingException thrown if fails to parse Json content type
      */
     public void initProperties(List<String> trim) throws JsonProcessingException {
-        processConfigurationSettings(replicaClient.listSettingSnapshot(snapshotName), null, trim);
+        replicaClient.listSettingSnapshot(snapshotName).stream().forEach(configuration -> {
+            processConfigurationSettings(configuration, null, trim);
+        });
+
     }
 
     @Override
-    void handleFeatureFlag(String key, FeatureFlagConfigurationSetting setting, List<String> trimStrings)
-        throws JsonProcessingException {
+    void handleFeatureFlag(String key, FeatureFlagConfigurationSetting setting, List<String> trimStrings) {
         // Feature Flags are only part of this if they come from a snapshot
         processFeatureFlag(key, setting, trimStrings);
     }
-    
+
     protected void processFeatureFlag(String key, FeatureFlagConfigurationSetting setting, List<String> trimStrings) {
         TracingInfo tracing = replicaClient.getTracingInfo();
         featureConfigurationSettings.add(setting);
