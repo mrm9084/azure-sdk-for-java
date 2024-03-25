@@ -3,180 +3,56 @@
 package com.azure.spring.cloud.feature.management.implementation;
 
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import com.azure.spring.cloud.feature.management.implementation.models.Feature;
-import com.azure.spring.cloud.feature.management.implementation.models.ServerSideFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.PropertyNamingStrategies;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
  * Configuration Properties for Feature Management. Processes the configurations to be usable by Feature Management.
  */
 @ConfigurationProperties(prefix = "feature-management")
-public class FeatureManagementProperties extends HashMap<String, Object> {
+public class FeatureManagementProperties {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(FeatureManagementProperties.class);
+    @JsonProperty("feature-flags")
+    private List<Feature> featureFlags;
 
-    private static final ObjectMapper MAPPER = new ObjectMapper()
-        .setPropertyNamingStrategy(PropertyNamingStrategies.KEBAB_CASE);
-
-    private static final long serialVersionUID = -1642032123104805346L;
-
-    private static final String FEATURE_FLAG_PASCAL_CASE = "FeatureFlags";
-
-    private static final String FEATURE_FLAG_KEBAB_CASE = "feature-flags";
-
-    private static final String FEATURE_FLAG_SNAKE_CASE = "feature_flags";
+    private HashMap<String, Feature> featureMap;
 
     /**
-     * Map of all Feature Flags that use Feature Filters.
+     * @return the featureFlags
      */
-    private transient Map<String, Feature> featureManagement;
-
-    /**
-     * Map of all Feature Flags that are just enabled/disabled.
-     */
-    private Map<String, Boolean> onOff;
-
-    public FeatureManagementProperties() {
-        featureManagement = new HashMap<>();
-        onOff = new HashMap<>();
-    }
-
-    @Override
-    public void putAll(Map<? extends String, ? extends Object> m) {
-        if (m == null) {
-            return;
-        }
-        // Need to reset or switch between on/off to conditional doesn't work
-        featureManagement = new HashMap<>();
-        onOff = new HashMap<>();
-
-        // try to parse the properties by server side schema as default
-        tryServerSideSchema(m);
-
-        if (featureManagement.isEmpty() && onOff.isEmpty()) {
-            tryClientSideSchema(m);
-        }
-    }
-
-    private void tryServerSideSchema(Map<? extends String, ? extends Object> features) {
-        if (features.keySet().isEmpty()) {
-            return;
-        }
-
-        // check if FeatureFlags section exist
-        String featureFlagsSectionKey = "";
-        for (String key : features.keySet()) {
-            if (FEATURE_FLAG_PASCAL_CASE.equalsIgnoreCase(key) || FEATURE_FLAG_KEBAB_CASE.equalsIgnoreCase(key)
-                || FEATURE_FLAG_SNAKE_CASE.equalsIgnoreCase(key)) {
-                featureFlagsSectionKey = key;
-                break;
-            }
-        }
-        if (featureFlagsSectionKey.isEmpty()) {
-            return;
-        }
-
-        // get FeatureFlags section and parse
-        final Object featureFlagsObject = features.get(featureFlagsSectionKey);
-        if (Map.class.isAssignableFrom(featureFlagsObject.getClass())) {
-            final Map<String, Object> featureFlagsSection = (Map<String, Object>) featureFlagsObject;
-            for (String key : featureFlagsSection.keySet()) {
-                addServerSideFeature(featureFlagsSection, key);
-            }
-        }
-    }
-
-    private void tryClientSideSchema(Map<? extends String, ? extends Object> features) {
-        for (String key : features.keySet()) {
-            addFeature(features, key, "");
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private void addFeature(Map<? extends String, ? extends Object> features, String key, String combined) {
-        Object featureValue = features.get(key);
-        if (!combined.isEmpty() && !combined.endsWith(".")) {
-            combined += ".";
-        }
-        if (featureValue instanceof Boolean) {
-            onOff.put(combined + key, (Boolean) featureValue);
-        } else {
-            Feature feature = null;
-            try {
-                feature = MAPPER.convertValue(featureValue, Feature.class);
-            } catch (IllegalArgumentException e) {
-                LOGGER.error("Found invalid feature {} with value {}.", combined + key, featureValue.toString());
-            }
-            // When coming from a file "feature.flag" is not a possible flag name
-            if (feature != null && feature.getEnabledFor() == null && feature.getKey() == null) {
-                if (Map.class.isAssignableFrom(featureValue.getClass())) {
-                    features = (Map<String, Object>) featureValue;
-                    for (String fKey : features.keySet()) {
-                        addFeature(features, fKey, combined + key);
-                    }
-                }
-            } else {
-                if (feature != null) {
-                    feature.setKey(key);
-                    featureManagement.put(key, feature);
-                }
-            }
-        }
-    }
-
-    private void addServerSideFeature(Map<? extends String, ? extends Object> features, String key) {
-        final Object featureValue = features.get(key);
-
-        ServerSideFeature serverSideFeature = null;
-        try {
-            LinkedHashMap<String, Object> ff = (LinkedHashMap<String, Object>) featureValue;
-            LinkedHashMap<String, Object> conditions = (LinkedHashMap<String, Object>) ff.get("conditions");
-
-            if (conditions.get("client_filters") instanceof List) {
-                conditions.put("client_filters", null);
-            }
-
-            serverSideFeature = MAPPER.convertValue(featureValue, ServerSideFeature.class);
-        } catch (IllegalArgumentException e) {
-            LOGGER.error("Found invalid feature {} with value {}.", key, featureValue.toString());
-        }
-
-        if (serverSideFeature != null && serverSideFeature.getId() != null) {
-            if (serverSideFeature.getConditions() != null
-                && serverSideFeature.getConditions().getClientFilters() != null) {
-                final Feature feature = new Feature();
-                feature.setKey(serverSideFeature.getId());
-                feature.setEvaluate(serverSideFeature.isEnabled());
-                feature.setEnabledFor(serverSideFeature.getConditions().getClientFilters());
-                feature.setRequirementType(serverSideFeature.getConditions().getRequirementType());
-                featureManagement.put(serverSideFeature.getId(), feature);
-            } else {
-                onOff.put(serverSideFeature.getId(), serverSideFeature.isEnabled());
-            }
-        }
+    public List<Feature> getFeatureFlags() {
+        return featureFlags;
     }
 
     /**
-     * @return the featureManagement
+     * @param featureFlags the featureFlags to set
      */
-    public Map<String, Feature> getFeatureManagement() {
-        return featureManagement;
+    public void setFeatureFlags(List<Feature> featureFlags) {
+        this.featureFlags = featureFlags;
+        featureMap = new HashMap<>();
+        featureFlags.stream().forEach(feature -> featureMap.put(feature.getKey(), feature));
+    }
+
+    public Feature getFeature(String name) {
+        return featureMap.getOrDefault(name, null);
     }
 
     /**
-     * @return the onOff
+     * @return the featureMap
      */
-    public Map<String, Boolean> getOnOff() {
-        return onOff;
+    public HashMap<String, Feature> getFeatureMap() {
+        return featureMap;
+    }
+
+    /**
+     * @param featureMap the featureMap to set
+     */
+    public void setFeatureMap(HashMap<String, Feature> featureMap) {
+        this.featureMap = featureMap;
     }
 
 }

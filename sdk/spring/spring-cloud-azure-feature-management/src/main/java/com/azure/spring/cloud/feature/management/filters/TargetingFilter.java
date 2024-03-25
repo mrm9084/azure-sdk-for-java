@@ -19,6 +19,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.util.StringUtils;
 
 import com.azure.spring.cloud.feature.management.implementation.targeting.Audience;
+import com.azure.spring.cloud.feature.management.implementation.targeting.AudienceLocal;
+import com.azure.spring.cloud.feature.management.implementation.targeting.AudienceServer;
 import com.azure.spring.cloud.feature.management.implementation.targeting.Exclusion;
 import com.azure.spring.cloud.feature.management.implementation.targeting.GroupRollout;
 import com.azure.spring.cloud.feature.management.models.FeatureFilterEvaluationContext;
@@ -136,7 +138,11 @@ public class TargetingFilter implements FeatureFilter {
 
         if (((Map<String, Object>) parameters.getOrDefault(exclusionValue, new HashMap<>()))
             .get(exclusionUserValue) instanceof List) {
-            audience = OBJECT_MAPPER.convertValue(parameters, Audience.class);
+            try {
+                audience = OBJECT_MAPPER.convertValue(parameters, AudienceLocal.class);
+            } catch (IllegalArgumentException e) {
+                audience = OBJECT_MAPPER.convertValue(parameters, AudienceServer.class);
+            }
         } else {
             // When it comes from a file exclusions can be a map instead of a list.
             Map<String, List<String>> exclusionMap = (Map<String, List<String>>) parameters.remove(exclusionValue);
@@ -144,7 +150,11 @@ public class TargetingFilter implements FeatureFilter {
                 exclusionMap = new HashMap<>();
             }
 
-            audience = OBJECT_MAPPER.convertValue(parameters, Audience.class);
+            try {
+                audience = OBJECT_MAPPER.convertValue(parameters, AudienceLocal.class);
+            } catch (IllegalArgumentException e) {
+                audience = OBJECT_MAPPER.convertValue(parameters, AudienceServer.class);
+            }
 
             Exclusion exclusion = new Exclusion();
             Object users = exclusionMap.get(exclusionUserValue);

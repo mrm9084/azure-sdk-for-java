@@ -7,19 +7,19 @@ package com.azure.spring.cloud.feature.management.implementation.targeting;
  */
 public class TargetingFilterSettings {
 
-    private Audience audience;
+    private AudienceServer audience;
 
     /**
      * @return the audience
      */
-    public Audience getAudience() {
+    public AudienceServer getAudience() {
         return audience;
     }
 
     /**
      * @param audience the audience to set
      */
-    public void setAudience(Audience audience) {
+    public void setAudience(AudienceServer audience) {
         this.audience = audience;
     }
 

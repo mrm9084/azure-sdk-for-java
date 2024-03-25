@@ -21,7 +21,7 @@ public class ServerSideFeature {
     private boolean enabled;
 
     @JsonProperty("conditions")
-    private Conditions conditions;
+    private ServerSideConditions conditions;
 
     /**
      * @return the id
@@ -68,14 +68,14 @@ public class ServerSideFeature {
     /**
      * @return the conditions
      * */
-    public Conditions getConditions() {
+    public ServerSideConditions getConditions() {
         return conditions;
     }
 
     /**
      * @param conditions the conditions to set
      * */
-    public void setConditions(Conditions conditions) {
+    public void setConditions(ServerSideConditions conditions) {
         this.conditions = conditions;
     }
 }

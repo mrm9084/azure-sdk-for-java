@@ -4,9 +4,6 @@ package com.azure.spring.cloud.feature.management.implementation.models;
 
 import static com.azure.spring.cloud.feature.management.implementation.FeatureManagementConstants.DEFAULT_REQUIREMENT_TYPE;
 
-import java.util.Map;
-
-import com.azure.spring.cloud.feature.management.models.FeatureFilterEvaluationContext;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -22,8 +19,8 @@ public class Feature {
     @JsonProperty("evaluate")
     private Boolean evaluate = true;
 
-    @JsonProperty("enabled-for")
-    private Map<Integer, FeatureFilterEvaluationContext> enabledFor;
+    @JsonProperty("conditions")
+    private Conditions conditions = new Conditions();
 
     @JsonProperty("requirement-type")
     private String requirementType = DEFAULT_REQUIREMENT_TYPE;
@@ -38,8 +35,9 @@ public class Feature {
     /**
      * @param key the key to set
      */
-    public void setKey(String key) {
+    public Feature setKey(String key) {
         this.key = key;
+        return this;
     }
 
     /**
@@ -52,22 +50,24 @@ public class Feature {
     /**
      * @param evaluate the evaluate to set
      */
-    public void setEvaluate(Boolean evaluate) {
+    public Feature setEvaluate(Boolean evaluate) {
         this.evaluate = evaluate;
+        return this;
     }
 
     /**
-     * @return the enabledFor
+     * @return the conditions
      */
-    public Map<Integer, FeatureFilterEvaluationContext> getEnabledFor() {
-        return enabledFor;
+    public Conditions getConditions() {
+        return conditions;
     }
 
     /**
-     * @param enabledFor the enabledFor to set
+     * @param conditions the conditions to set
      */
-    public void setEnabledFor(Map<Integer, FeatureFilterEvaluationContext> enabledFor) {
-        this.enabledFor = enabledFor;
+    public Feature setConditions(Conditions conditions) {
+        this.conditions = conditions;
+        return this;
     }
 
     /**
@@ -80,8 +80,9 @@ public class Feature {
     /**
      * @param requirementType the requirementType to set
      */
-    public void setRequirementType(String requirementType) {
+    public Feature setRequirementType(String requirementType) {
         this.requirementType = requirementType;
+        return this;
     }
 
 }

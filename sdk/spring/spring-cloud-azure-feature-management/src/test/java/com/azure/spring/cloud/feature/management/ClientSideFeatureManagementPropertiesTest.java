@@ -3,8 +3,8 @@
 
 package com.azure.spring.cloud.feature.management;
 
-import com.azure.spring.cloud.feature.management.implementation.FeatureManagementProperties;
-import com.azure.spring.cloud.feature.management.implementation.models.Feature;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,8 +13,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import com.azure.spring.cloud.feature.management.implementation.FeatureManagementProperties;
+import com.azure.spring.cloud.feature.management.implementation.models.Feature;
 
 @ExtendWith(SpringExtension.class)
 @EnableConfigurationProperties(value = FeatureManagementProperties.class)
@@ -25,20 +25,16 @@ public class ClientSideFeatureManagementPropertiesTest {
     private FeatureManagementProperties clientSideProperties;
 
     @Test
-    void onOffMapTest() {
-        assertTrue(clientSideProperties.getOnOff().get("gamma"));
-    }
-
-    @Test
     void featureManagementTest() {
-        final Feature alphaFeatureItem = clientSideProperties.getFeatureManagement().get("alpha");
+        
+        final Feature alphaFeatureItem = clientSideProperties.getFeature("alpha");
         assertEquals(alphaFeatureItem.getKey(), "alpha");
-        assertEquals(alphaFeatureItem.getEnabledFor().size(), 1);
-        assertEquals(alphaFeatureItem.getEnabledFor().get(0).getName(), "randomFilter");
+        assertEquals(alphaFeatureItem.getConditions().getClientFilters().size(), 1);
+        assertEquals(alphaFeatureItem.getConditions().getClientFilters().get(0).getName(), "randomFilter");
 
-        final Feature betaFeatureItem = clientSideProperties.getFeatureManagement().get("beta");
+        final Feature betaFeatureItem = clientSideProperties.getFeature("beta");
         assertEquals(betaFeatureItem.getKey(), "beta");
-        assertEquals(betaFeatureItem.getEnabledFor().size(), 1);
-        assertEquals(betaFeatureItem.getEnabledFor().get(0).getName(), "timeWindowFilter");
+        assertEquals(betaFeatureItem.getConditions().getClientFilters().size(), 1);
+        assertEquals(betaFeatureItem.getConditions().getClientFilters().get(0).getName(), "timeWindowFilter");
     }
 }

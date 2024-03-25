@@ -10,8 +10,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.util.HashMap;
-import java.util.concurrent.ExecutionException;
+import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,6 +26,7 @@ import com.azure.spring.cloud.feature.management.filters.FeatureFilter;
 import com.azure.spring.cloud.feature.management.implementation.FeatureManagementConfigProperties;
 import com.azure.spring.cloud.feature.management.implementation.FeatureManagementProperties;
 import com.azure.spring.cloud.feature.management.implementation.TestConfiguration;
+import com.azure.spring.cloud.feature.management.implementation.models.Conditions;
 import com.azure.spring.cloud.feature.management.implementation.models.Feature;
 import com.azure.spring.cloud.feature.management.models.FeatureFilterEvaluationContext;
 import com.azure.spring.cloud.feature.management.models.FilterNotFoundException;
@@ -64,56 +64,45 @@ public class FeatureManagerTest {
     @Test
     public void isEnabledFeatureNotFound() {
         assertFalse(featureManager.isEnabledAsync("Non Existed Feature").block());
-        verify(featureManagementPropertiesMock, times(2)).getOnOff();
-        verify(featureManagementPropertiesMock, times(2)).getFeatureManagement();
+        verify(featureManagementPropertiesMock, times(1)).getFeature(Mockito.anyString());
     }
 
     @Test
     public void isEnabledFeatureOff() {
-        HashMap<String, Boolean> features = new HashMap<>();
-        features.put("Off", false);
-        when(featureManagementPropertiesMock.getOnOff()).thenReturn(features);
+        when(featureManagementPropertiesMock.getFeature(Mockito.any())).thenReturn(new Feature().setEvaluate(false));
 
         assertFalse(featureManager.isEnabledAsync("Off").block());
-        verify(featureManagementPropertiesMock, times(2)).getOnOff();
-        verify(featureManagementPropertiesMock, times(1)).getFeatureManagement();
+        verify(featureManagementPropertiesMock, times(1)).getFeature(Mockito.anyString());
     }
 
     @Test
-    public void isEnabledOnBoolean() throws InterruptedException, ExecutionException, FilterNotFoundException {
-        HashMap<String, Boolean> features = new HashMap<>();
-        features.put("On", true);
-        when(featureManagementPropertiesMock.getOnOff()).thenReturn(features);
+    public void isEnabledOnBoolean() {
+        Feature feature = new Feature();
+        feature.setEvaluate(true);
+        when(featureManagementPropertiesMock.getFeature(Mockito.anyString())).thenReturn(feature);
 
         assertTrue(featureManager.isEnabledAsync("On").block());
-        verify(featureManagementPropertiesMock, times(2)).getOnOff();
-        verify(featureManagementPropertiesMock, times(1)).getFeatureManagement();
+        verify(featureManagementPropertiesMock, times(1)).getFeature(Mockito.anyString());
     }
 
     @Test
     public void isEnabledFeatureHasNoFilters() {
-        HashMap<String, Feature> features = new HashMap<>();
         Feature noFilters = new Feature();
         noFilters.setKey("NoFilters");
-        noFilters.setEnabledFor(new HashMap<Integer, FeatureFilterEvaluationContext>());
-        features.put("NoFilters", noFilters);
-        when(featureManagementPropertiesMock.getFeatureManagement()).thenReturn(features);
+        noFilters.setConditions(new Conditions().setClientFilters(List.of()));
+        when(featureManagementPropertiesMock.getFeature(Mockito.anyString())).thenReturn(noFilters);
 
-        assertFalse(featureManager.isEnabledAsync("NoFilters").block());
+        assertTrue(featureManager.isEnabledAsync("NoFilters").block());
     }
 
     @Test
-    public void isEnabledON() throws InterruptedException, ExecutionException, FilterNotFoundException {
-        HashMap<String, Feature> features = new HashMap<>();
+    public void isEnabledON() {
         Feature onFeature = new Feature();
         onFeature.setKey("On");
-        HashMap<Integer, FeatureFilterEvaluationContext> filters = new HashMap<Integer, FeatureFilterEvaluationContext>();
         FeatureFilterEvaluationContext alwaysOn = new FeatureFilterEvaluationContext();
         alwaysOn.setName("AlwaysOn");
-        filters.put(0, alwaysOn);
-        onFeature.setEnabledFor(filters);
-        features.put("On", onFeature);
-        when(featureManagementPropertiesMock.getFeatureManagement()).thenReturn(features);
+        onFeature.setConditions(new Conditions().setClientFilters(List.of(alwaysOn)));
+        when(featureManagementPropertiesMock.getFeature(Mockito.anyString())).thenReturn(onFeature);
 
         when(context.getBean(Mockito.matches("AlwaysOn"))).thenReturn(new AlwaysOnFilter());
 
@@ -121,17 +110,13 @@ public class FeatureManagerTest {
     }
 
     @Test
-    public void noFilter() throws FilterNotFoundException {
-        HashMap<String, Feature> features = new HashMap<>();
+    public void noFilter() {
         Feature onFeature = new Feature();
         onFeature.setKey("Off");
-        HashMap<Integer, FeatureFilterEvaluationContext> filters = new HashMap<Integer, FeatureFilterEvaluationContext>();
         FeatureFilterEvaluationContext alwaysOn = new FeatureFilterEvaluationContext();
         alwaysOn.setName("AlwaysOff");
-        filters.put(0, alwaysOn);
-        onFeature.setEnabledFor(filters);
-        features.put("Off", onFeature);
-        when(featureManagementPropertiesMock.getFeatureManagement()).thenReturn(features);
+        onFeature.setConditions(new Conditions().setClientFilters(List.of(alwaysOn)));
+        when(featureManagementPropertiesMock.getFeature(Mockito.anyString())).thenReturn(onFeature);
 
         when(context.getBean(Mockito.matches("AlwaysOff"))).thenThrow(new NoSuchBeanDefinitionException(""));
 
@@ -142,18 +127,13 @@ public class FeatureManagerTest {
 
     @Test
     public void allOn() {
-        HashMap<String, Feature> features = new HashMap<>();
         Feature onFeature = new Feature();
         onFeature.setKey("On");
-        HashMap<Integer, FeatureFilterEvaluationContext> filters = new HashMap<Integer, FeatureFilterEvaluationContext>();
         FeatureFilterEvaluationContext alwaysOn = new FeatureFilterEvaluationContext();
         alwaysOn.setName("AlwaysOn");
-        filters.put(0, alwaysOn);
-        filters.put(1, alwaysOn);
-        onFeature.setEnabledFor(filters);
+        onFeature.setConditions(new Conditions().setClientFilters(List.of(alwaysOn, alwaysOn)));
         onFeature.setRequirementType("All");
-        features.put("On", onFeature);
-        when(featureManagementPropertiesMock.getFeatureManagement()).thenReturn(features);
+        when(featureManagementPropertiesMock.getFeature(Mockito.anyString())).thenReturn(onFeature);
 
         when(context.getBean(Mockito.matches("AlwaysOn"))).thenReturn(new AlwaysOnFilter())
             .thenReturn(new AlwaysOnFilter());
@@ -163,18 +143,13 @@ public class FeatureManagerTest {
 
     @Test
     public void oneOffAny() {
-        HashMap<String, Feature> features = new HashMap<>();
         Feature onFeature = new Feature();
         onFeature.setKey("On");
-        HashMap<Integer, FeatureFilterEvaluationContext> filters = new HashMap<Integer, FeatureFilterEvaluationContext>();
         FeatureFilterEvaluationContext alwaysOn = new FeatureFilterEvaluationContext();
         alwaysOn.setName("AlwaysOn");
-        filters.put(0, alwaysOn);
-        filters.put(1, alwaysOn);
-        onFeature.setEnabledFor(filters);
+        onFeature.setConditions(new Conditions().setClientFilters(List.of(alwaysOn, alwaysOn)));
         onFeature.setRequirementType("Any");
-        features.put("On", onFeature);
-        when(featureManagementPropertiesMock.getFeatureManagement()).thenReturn(features);
+        when(featureManagementPropertiesMock.getFeature(Mockito.anyString())).thenReturn(onFeature);
 
         when(context.getBean(Mockito.matches("AlwaysOn"))).thenReturn(new AlwaysOnFilter())
             .thenReturn(new AlwaysOffFilter());
@@ -184,18 +159,13 @@ public class FeatureManagerTest {
 
     @Test
     public void oneOffAll() {
-        HashMap<String, Feature> features = new HashMap<>();
         Feature onFeature = new Feature();
         onFeature.setKey("On");
-        HashMap<Integer, FeatureFilterEvaluationContext> filters = new HashMap<Integer, FeatureFilterEvaluationContext>();
         FeatureFilterEvaluationContext alwaysOn = new FeatureFilterEvaluationContext();
         alwaysOn.setName("AlwaysOn");
-        filters.put(0, alwaysOn);
-        filters.put(1, alwaysOn);
-        onFeature.setEnabledFor(filters);
+        onFeature.setConditions(new Conditions().setClientFilters(List.of(alwaysOn, alwaysOn)));
         onFeature.setRequirementType("All");
-        features.put("On", onFeature);
-        when(featureManagementPropertiesMock.getFeatureManagement()).thenReturn(features);
+        when(featureManagementPropertiesMock.getFeature(Mockito.anyString())).thenReturn(onFeature);
 
         when(context.getBean(Mockito.matches("AlwaysOn"))).thenReturn(new AlwaysOnFilter())
             .thenReturn(new AlwaysOffFilter());
