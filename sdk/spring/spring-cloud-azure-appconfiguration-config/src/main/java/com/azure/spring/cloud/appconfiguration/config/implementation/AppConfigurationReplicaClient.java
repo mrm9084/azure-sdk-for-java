@@ -153,15 +153,16 @@ class AppConfigurationReplicaClient {
             throw new AppConfigurationStatusException(e.getMessage(), null, null);
         }
     }
-    
+
     Flux<MatchConditions> getPagedEtags(SettingSelector settingSelector) {
-        return client.listConfigurationSettings(settingSelector).byPage().map(pagedResponse -> new MatchConditions().setIfNoneMatch(
-                            pagedResponse.getHeaders().getValue(HttpHeaderName.ETAG)));
+        return client.listConfigurationSettings(settingSelector).byPage()
+            .map(pagedResponse -> new MatchConditions().setIfNoneMatch(
+                pagedResponse.getHeaders().getValue(HttpHeaderName.ETAG)));
     }
-    
+
     Flux<PagedResponse<ConfigurationSetting>> checkWatchKeys(SettingSelector settingSelector) {
         return client.listConfigurationSettings(settingSelector).byPage().filter(pagedResponse -> {
-           return pagedResponse.getStatusCode() != 304;
+            return pagedResponse.getStatusCode() != 304;
         });
     }
 

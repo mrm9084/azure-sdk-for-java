@@ -68,7 +68,7 @@ public class AppConfigurationPullRefresh implements AppConfigurationRefresh, Env
      * trigger has been updated configuration are reloaded.
      *
      * @return Future with a boolean of if a RefreshEvent was published. If refreshConfigurations is currently being run
-     * elsewhere this method will return right away as <b>false</b>.
+     *         elsewhere this method will return right away as <b>false</b>.
      */
     public Mono<Boolean> refreshConfigurations() {
         return refreshStores();
@@ -102,15 +102,14 @@ public class AppConfigurationPullRefresh implements AppConfigurationRefresh, Env
             try {
                 Mono<RefreshEventData> eventData = AppConfigurationRefreshUtil.refreshStoresCheck(clientFactory,
                     refreshInterval, profiles, defaultMinBackoff);
-                
+
                 return eventData.map(event -> {
                     if (event.getDoRefresh()) {
-                        publisher.publishEvent(new RefreshEvent(this, event, event.getMessage()));
+                        triggerRefresh(event);
                     }
                     return event.getDoRefresh();
                 });
-                
-                
+
             } catch (Exception e) {
                 // The next refresh will happen sooner if refresh interval is expired.
                 StateHolder.getCurrentState().updateNextRefreshTime(refreshInterval, defaultMinBackoff);
@@ -120,6 +119,17 @@ public class AppConfigurationPullRefresh implements AppConfigurationRefresh, Env
             }
         }
         return Mono.just(false);
+    }
+
+    private void triggerRefresh(RefreshEventData event) {
+        new Thread(new Runnable() {
+
+            @Override
+            public void run() {
+                publisher.publishEvent(new RefreshEvent(this, event, event.getMessage()));
+            }
+        }).start();
+
     }
 
     @Override

@@ -6,7 +6,6 @@ import static com.azure.spring.cloud.appconfiguration.config.implementation.AppC
 import static com.azure.spring.cloud.appconfiguration.config.implementation.AppConfigurationConstants.DEFAULT_REQUIREMENT_TYPE;
 import static com.azure.spring.cloud.appconfiguration.config.implementation.AppConfigurationConstants.DEFAULT_ROLLOUT_PERCENTAGE;
 import static com.azure.spring.cloud.appconfiguration.config.implementation.AppConfigurationConstants.DEFAULT_ROLLOUT_PERCENTAGE_CAPS;
-import static com.azure.spring.cloud.appconfiguration.config.implementation.AppConfigurationConstants.FEATURE_FLAG_CONTENT_TYPE;
 import static com.azure.spring.cloud.appconfiguration.config.implementation.AppConfigurationConstants.FEATURE_FLAG_PREFIX;
 import static com.azure.spring.cloud.appconfiguration.config.implementation.AppConfigurationConstants.FEATURE_MANAGEMENT_KEY;
 import static com.azure.spring.cloud.appconfiguration.config.implementation.AppConfigurationConstants.GROUPS;
@@ -40,8 +39,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
-
-import reactor.core.Disposable;
 
 /**
  * Azure App Configuration PropertySource unique per Store Label(Profile) combo.
@@ -96,26 +93,11 @@ class AppConfigurationFeatureManagementPropertySource extends AppConfigurationPr
         for (String label : labels) {
             settingSelector.setLabelFilter(label);
 
-            Disposable done = replicaClient.listSettings(settingSelector).subscribe(setting -> {
-                if (setting instanceof FeatureFlagConfigurationSetting
-                    && FEATURE_FLAG_CONTENT_TYPE.equals(setting.getContentType())) {
-                    processFeatureFlag(null, (FeatureFlagConfigurationSetting) setting, null);
-                }
-            });
-            
-            int count = 0;
-            
-            while(!done.isDisposed()) {
-                try {
-                    Thread.sleep(1);
-                    count++;
-                    if (count >= 10000) {
-                        throw new RuntimeException();
-                    }
-                } catch (InterruptedException e) {
-                }
+            List<ConfigurationSetting> settings = replicaClient.listSettings(settingSelector).collectList().block();
+
+            for (ConfigurationSetting setting : settings) {
+                processFeatureFlag(null, (FeatureFlagConfigurationSetting) setting, null);
             }
-            System.out.println("Done");
         }
     }
 
@@ -132,10 +114,10 @@ class AppConfigurationFeatureManagementPropertySource extends AppConfigurationPr
 
         List<String> labels = Arrays.asList(labelFilter);
         Collections.reverse(labels);
-        
+
         List<FeatureFlagWatch> matchedConditions = new ArrayList<>();
-        
-        for (String label: labels) {
+
+        for (String label : labels) {
             settingSelector.setLabelFilter(label);
             matchedConditions.add(new FeatureFlagWatch(settingSelector, replicaClient.getPagedEtags(settingSelector)));
         }

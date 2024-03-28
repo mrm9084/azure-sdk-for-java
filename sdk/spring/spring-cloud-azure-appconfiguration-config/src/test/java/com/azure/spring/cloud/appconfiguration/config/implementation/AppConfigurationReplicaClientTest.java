@@ -53,16 +53,16 @@ public class AppConfigurationReplicaClientTest {
 
     @Mock
     private PagedFlux<ConfigurationSetting> settingsMock;
-    
+
     @Mock
-    private Supplier<PageRetriever<String,PagedResponse<ConfigurationSetting>>> supplierMock;
-    
+    private Supplier<PageRetriever<String, PagedResponse<ConfigurationSetting>>> supplierMock;
+
     @Mock
     private PageRetriever<String, PagedResponse<ConfigurationSetting>> valueMock;
-    
+
     @Mock
     private Flux<PagedResponse<ConfigurationSetting>> pageResponseMock;
-    
+
     @Mock
     private Flux<Object> fluxObjectMock;
 
@@ -98,8 +98,9 @@ public class AppConfigurationReplicaClientTest {
 
         when(responseMock.getStatusCode()).thenReturn(499);
         assertThrows(HttpResponseException.class, () -> client.getWatchKey("watch", "\0"));
-        
-        when(clientMock.getConfigurationSetting(Mockito.any(), Mockito.any())).thenThrow(new UncheckedIOException(new UnknownHostException()));
+
+        when(clientMock.getConfigurationSetting(Mockito.any(), Mockito.any()))
+            .thenThrow(new UncheckedIOException(new UnknownHostException()));
         assertThrows(AppConfigurationStatusException.class, () -> client.getWatchKey("watch", "\0"));
     }
 
@@ -129,13 +130,14 @@ public class AppConfigurationReplicaClientTest {
         when(responseMock.getStatusCode()).thenReturn(499);
         assertThrows(HttpResponseException.class, () -> client.listSettings(new SettingSelector()));
     }
-    
+
     @Test
     public void listSettingsUnknownHostTest() {
         AppConfigurationReplicaClient client = new AppConfigurationReplicaClient(endpoint, clientMock,
             new TracingInfo(false, false, 0, Configuration.getGlobalConfiguration()));
-    
-        when(clientMock.listConfigurationSettings(Mockito.any())).thenThrow(new UncheckedIOException(new UnknownHostException()));
+
+        when(clientMock.listConfigurationSettings(Mockito.any()))
+            .thenThrow(new UncheckedIOException(new UnknownHostException()));
         assertThrows(AppConfigurationStatusException.class, () -> client.listSettings(new SettingSelector()));
     }
 
@@ -185,7 +187,7 @@ public class AppConfigurationReplicaClientTest {
 
         // Success in a list request results in a reset of failed attempts
         client.processConfigurationSetting(new ConfigurationSetting());
-        
+
         assertTrue(client.getBackoffEndTime().isBefore(Instant.now()));
         assertEquals(0, client.getFailedAttempts());
     }
@@ -218,7 +220,7 @@ public class AppConfigurationReplicaClientTest {
 
         when(responseMock.getStatusCode()).thenReturn(499);
         assertThrows(HttpResponseException.class, () -> client.listSettingSnapshot("SnapshotName"));
-        
+
         when(clientMock.getSnapshot(Mockito.any())).thenThrow(new UncheckedIOException(new UnknownHostException()));
         assertThrows(AppConfigurationStatusException.class, () -> client.listSettingSnapshot("SnapshotName"));
     }
@@ -233,20 +235,21 @@ public class AppConfigurationReplicaClientTest {
 
         when(clientMock.getSnapshot(Mockito.any())).thenReturn(Mono.just(snapshot));
 
-        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> client.listSettingSnapshot("SnapshotName"));
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+            () -> client.listSettingSnapshot("SnapshotName"));
         assertEquals("Snapshot SnapshotName needs to be of type Key.", e.getMessage());
     }
-    
+
     @Test
     public void updateSyncTokenTest() {
         AppConfigurationReplicaClient client = new AppConfigurationReplicaClient(endpoint, clientMock,
             new TracingInfo(false, false, 0, Configuration.getGlobalConfiguration()));
         String fakeToken = "fake_sync_token";
-        
+
         client.updateSyncToken(fakeToken);
         verify(clientMock, times(1)).updateSyncToken(Mockito.eq(fakeToken));
         reset(clientMock);
-        
+
         client.updateSyncToken(null);
         verify(clientMock, times(0)).updateSyncToken(Mockito.eq(fakeToken));
     }

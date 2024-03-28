@@ -21,7 +21,6 @@ import org.springframework.core.env.Environment;
 import org.springframework.core.env.PropertySource;
 import org.springframework.util.StringUtils;
 
-import com.azure.core.http.MatchConditions;
 import com.azure.data.appconfiguration.models.ConfigurationSetting;
 import com.azure.spring.cloud.appconfiguration.config.implementation.properties.AppConfigurationKeyValueSelector;
 import com.azure.spring.cloud.appconfiguration.config.implementation.properties.AppConfigurationProviderProperties;
@@ -29,8 +28,6 @@ import com.azure.spring.cloud.appconfiguration.config.implementation.properties.
 import com.azure.spring.cloud.appconfiguration.config.implementation.properties.AppConfigurationStoreTrigger;
 import com.azure.spring.cloud.appconfiguration.config.implementation.properties.ConfigStore;
 import com.azure.spring.cloud.appconfiguration.config.implementation.properties.FeatureFlagKeyValueSelector;
-
-import reactor.core.publisher.Mono;
 
 /**
  * Locates Azure App Configuration Property Sources.
@@ -201,16 +198,17 @@ public final class AppConfigurationPropertySourceLocator implements PropertySour
         List<AppConfigurationStoreTrigger> triggers) {
         List<ConfigurationSetting> watchKeysSettings = new ArrayList<>();
         for (AppConfigurationStoreTrigger trigger : triggers) {
-           client.getWatchKey(trigger.getKey(), trigger.getLabel()).subscribe(watchKey -> {
-               if (watchKey != null) {
-                   watchKeysSettings.add(watchKey);
-               } else {
-                   watchKeysSettings.add(new ConfigurationSetting().setKey(trigger.getKey()).setLabel(trigger.getLabel()));
-               }
-           
-           });
+            client.getWatchKey(trigger.getKey(), trigger.getLabel()).subscribe(watchKey -> {
+                if (watchKey != null) {
+                    watchKeysSettings.add(watchKey);
+                } else {
+                    watchKeysSettings
+                        .add(new ConfigurationSetting().setKey(trigger.getKey()).setLabel(trigger.getLabel()));
+                }
+
+            });
         }
-            
+
         return watchKeysSettings;
     }
 
