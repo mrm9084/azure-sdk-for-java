@@ -30,7 +30,7 @@ import com.fasterxml.jackson.databind.JsonNode;
  * Endpoint for requesting new configurations to be loaded.
  */
 @ControllerEndpoint(id = APPCONFIGURATION_REFRESH)
-public final class AppConfigurationRefreshEndpoint implements ApplicationEventPublisherAware {
+public class AppConfigurationRefreshEndpoint implements ApplicationEventPublisherAware {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AppConfigurationRefreshEndpoint.class);
 
